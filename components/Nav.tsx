@@ -1,3 +1,4 @@
+// components/Nav.tsx
 "use client";
 
 import Link from "next/link";
@@ -35,22 +36,17 @@ function getInboxNewCount(): number {
 export default function Nav() {
   const router = useRouter();
   const pathname = usePathname();
-
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [inboxNew, setInboxNew] = useState(0);
 
   useEffect(() => {
-    const refreshLogin = () => setIsLoggedIn(!!localStorage.getItem("token"));
-    const refreshInbox = () => setInboxNew(getInboxNewCount());
+    // token determines "logged in" nav items
+    setIsLoggedIn(!!localStorage.getItem("token"));
 
-    refreshLogin();
-    refreshInbox();
+    const refresh = () => setInboxNew(getInboxNewCount());
+    refresh();
 
-    const t = window.setInterval(() => {
-      refreshLogin();
-      refreshInbox();
-    }, 1500);
-
+    const t = window.setInterval(refresh, 2000);
     return () => window.clearInterval(t);
   }, [pathname]);
 
@@ -64,15 +60,11 @@ export default function Nav() {
     "text-sm text-slate-600 hover:text-slate-900 transition-colors";
   const activeLink = "text-slate-900 font-semibold";
 
-  const inboxIsActive = pathname?.startsWith("/dashboard/responses");
-
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-slate-200/70 bg-white/75 backdrop-blur">
-      {/* PROOF BANNER (remove later) */}
-      <div className="bg-red-600 text-white text-xs font-bold px-3 py-2 text-center">
-        NAV IS THIS FILE ✅ (if you see this, deploy is using /components/Nav.tsx)
-      </div>
-
+    <header
+      data-nav-version="NAV-2026-02-05-LOCKIN"
+      className="sticky top-0 z-50 w-full border-b border-slate-200/70 bg-white/75 backdrop-blur"
+    >
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
         {/* Brand */}
         <Link href="/" className="flex items-center gap-3">
@@ -83,14 +75,12 @@ export default function Nav() {
             <div className="text-sm font-semibold text-slate-900">
               Real Estate Explainer
             </div>
-            <div className="text-xs text-slate-500">
-              Leases • HOAs • Closing docs
-            </div>
+            <div className="text-xs text-slate-500">Leases • HOAs • Closing docs</div>
           </div>
         </Link>
 
-        {/* LINKS — force visible (remove md:flex later) */}
-        <nav className="flex items-center gap-6">
+        {/* Links */}
+        <nav className="hidden items-center gap-6 md:flex">
           <Link
             href="/"
             className={`${linkBase} ${pathname === "/" ? activeLink : ""}`}
@@ -100,27 +90,21 @@ export default function Nav() {
 
           <Link
             href="/pricing"
-            className={`${linkBase} ${
-              pathname?.startsWith("/pricing") ? activeLink : ""
-            }`}
+            className={`${linkBase} ${pathname?.startsWith("/pricing") ? activeLink : ""}`}
           >
             Pricing
           </Link>
 
           <Link
             href="/about"
-            className={`${linkBase} ${
-              pathname?.startsWith("/about") ? activeLink : ""
-            }`}
+            className={`${linkBase} ${pathname?.startsWith("/about") ? activeLink : ""}`}
           >
             About
           </Link>
 
           <Link
             href="/support"
-            className={`${linkBase} ${
-              pathname?.startsWith("/support") ? activeLink : ""
-            }`}
+            className={`${linkBase} ${pathname?.startsWith("/support") ? activeLink : ""}`}
           >
             Support
           </Link>
@@ -130,7 +114,8 @@ export default function Nav() {
               <Link
                 href="/dashboard"
                 className={`${linkBase} ${
-                  pathname?.startsWith("/dashboard") && !inboxIsActive
+                  pathname?.startsWith("/dashboard") &&
+                  !pathname?.startsWith("/dashboard/responses")
                     ? activeLink
                     : ""
                 }`}
@@ -138,9 +123,10 @@ export default function Nav() {
                 Dashboard
               </Link>
 
+              {/* ✅ THIS IS THE INBOX LINK */}
               <Link
                 href="/dashboard/responses"
-                className={`${linkBase} ${inboxIsActive ? activeLink : ""}`}
+                className={`${linkBase} ${pathname?.startsWith("/dashboard/responses") ? activeLink : ""}`}
               >
                 <span className="inline-flex items-center gap-2">
                   Inbox
@@ -154,18 +140,14 @@ export default function Nav() {
 
               <Link
                 href="/upload"
-                className={`${linkBase} ${
-                  pathname?.startsWith("/upload") ? activeLink : ""
-                }`}
+                className={`${linkBase} ${pathname?.startsWith("/upload") ? activeLink : ""}`}
               >
                 Upload
               </Link>
 
               <Link
                 href="/draft"
-                className={`${linkBase} ${
-                  pathname?.startsWith("/draft") ? activeLink : ""
-                }`}
+                className={`${linkBase} ${pathname?.startsWith("/draft") ? activeLink : ""}`}
               >
                 Draft
               </Link>
