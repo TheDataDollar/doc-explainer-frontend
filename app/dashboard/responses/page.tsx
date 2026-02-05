@@ -1,7 +1,7 @@
 // app/dashboard/responses/page.tsx
 "use client";
 
-import Nav from "../../components/Nav";
+import Nav from "../../../components/Nav";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 

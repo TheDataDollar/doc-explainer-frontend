@@ -1,9 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function AuthPage() {
-  const API = "https://doc-explainer-api.onrender.com";
+  const router = useRouter();
+
+  const API =
+    process.env.NEXT_PUBLIC_API_BASE_URL ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    "https://doc-explainer-api.onrender.com";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -11,51 +17,109 @@ export default function AuthPage() {
   const [token, setToken] = useState("");
   const [msg, setMsg] = useState("");
 
+  useEffect(() => {
+    try {
+      const existing = localStorage.getItem("token") || "";
+      if (existing) setToken(existing);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  function persistToken(next) {
+    setToken(next);
+    try {
+      localStorage.setItem("token", next);
+    } catch {
+      // ignore
+    }
+  }
+
   async function register() {
     setMsg("Registering...");
-    const res = await fetch(`${API}/auth/register`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
+    try {
+      const res = await fetch(`${API}/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-    const data = await res.json();
-    if (!res.ok) return setMsg(`❌ ${data.detail || "Register failed"}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return setMsg(`❌ ${data.detail || "Register failed"}`);
 
-    setToken(data.token);
-    setMsg("✅ Registered! Token saved below.");
+      if (!data.token) return setMsg("❌ No token returned from server.");
+
+      persistToken(data.token);
+      setMsg("✅ Registered! Token saved. Redirecting to dashboard...");
+      router.push("/dashboard");
+    } catch (e) {
+      setMsg(`❌ Register error: ${e?.message || "Unknown error"}`);
+    }
   }
 
   async function login() {
     setMsg("Logging in...");
-    const res = await fetch(`${API}/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
+    try {
+      const res = await fetch(`${API}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-    const data = await res.json();
-    if (!res.ok) return setMsg(`❌ ${data.detail || "Login failed"}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return setMsg(`❌ ${data.detail || "Login failed"}`);
 
-    setToken(data.token);
-    setMsg("✅ Logged in! Token saved below.");
+      if (!data.token) return setMsg("❌ No token returned from server.");
+
+      persistToken(data.token);
+      setMsg("✅ Logged in! Token saved. Redirecting to dashboard...");
+      router.push("/dashboard");
+    } catch (e) {
+
+      setMsg(`❌ Login error: ${e?.message || "Unknown error"}`);
+    }
   }
 
   async function getMe() {
     setMsg("Calling /me ...");
-    const res = await fetch(`${API}/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    try {
+      const t = token || localStorage.getItem("token") || "";
+      if (!t) return setMsg("❌ No token saved yet.");
 
-    const data = await res.json();
-    if (!res.ok) return setMsg(`❌ ${data.detail || "Me failed"}`);
+      const res = await fetch(`${API}/me`, {
+        headers: { Authorization: `Bearer ${t}` },
+      });
 
-    setMsg("✅ /me success:\n" + JSON.stringify(data, null, 2));
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return setMsg(`❌ ${data.detail || "Me failed"}`);
+
+      setMsg("✅ /me success:\n" + JSON.stringify(data, null, 2));
+    } catch (e) {
+
+      setMsg(`❌ /me error: ${e?.message || "Unknown error"}`);
+    }
+  }
+
+  function saveTokenManually() {
+    if (!token.trim()) return setMsg("❌ Token box is empty.");
+    persistToken(token.trim());
+    setMsg("✅ Token saved to localStorage.");
+  }
+
+  function logout() {
+    try {
+      localStorage.removeItem("token");
+    } catch {}
+    setToken("");
+    setMsg("Logged out (token removed).");
   }
 
   return (
     <div style={{ padding: 24, fontFamily: "Arial", maxWidth: 520 }}>
       <h1>Auth</h1>
+      <p style={{ marginTop: 0, color: "#555" }}>
+        API: <b>{API}</b>
+      </p>
 
       <label>Email</label>
       <input
@@ -63,6 +127,8 @@ export default function AuthPage() {
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         placeholder="you@email.com"
+        autoCapitalize="none"
+        autoCorrect="off"
       />
 
       <label>Password</label>
@@ -74,16 +140,19 @@ export default function AuthPage() {
         placeholder="password"
       />
 
-      <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+      <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
         <button onClick={register} style={{ padding: "10px 14px" }}>
           Register
         </button>
         <button onClick={login} style={{ padding: "10px 14px" }}>
           Login
         </button>
+        <button onClick={() => router.push("/dashboard")} style={{ padding: "10px 14px" }}>
+          Go dashboard
+        </button>
       </div>
 
-      <label>Token</label>
+      <label>Token (saved to localStorage)</label>
       <textarea
         style={{ width: "100%", padding: 10, height: 120, marginTop: 6 }}
         value={token}
@@ -91,9 +160,15 @@ export default function AuthPage() {
         placeholder="token will appear here"
       />
 
-      <div style={{ marginTop: 12 }}>
+      <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
+        <button onClick={saveTokenManually} style={{ padding: "10px 14px" }}>
+          Save token
+        </button>
         <button onClick={getMe} style={{ padding: "10px 14px" }}>
           Test /me
+        </button>
+        <button onClick={logout} style={{ padding: "10px 14px" }}>
+          Logout
         </button>
       </div>
 
