@@ -1,8 +1,9 @@
+// app/pricing/page.tsx (FULL COPY / REPLACE)
 "use client";
 
 import Footer from "../../components/Footer";
 import Link from "next/link";
-import Nav from "../../components/Nav";
+import Nav from "@/components/Nav";
 import { useMemo, useState } from "react";
 
 /**
@@ -16,6 +17,56 @@ type Billing = "monthly" | "yearly";
 
 export default function PricingPage() {
   const [billing, setBilling] = useState<Billing>("monthly");
+
+  const API =
+    process.env.NEXT_PUBLIC_API_BASE_URL ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    "https://doc-explainer-api.onrender.com";
+
+  // ✅ Stripe TEST Price IDs (match backend ALLOWED_PRICE_IDS)
+  // Mapping:
+  // "Pro" plan -> $47 (Starter product in Stripe)
+  // "Business" plan -> $209 (Pro product in Stripe)
+  const PRICE_IDS = {
+    pro: {
+      monthly: "price_1Sz0cSLBOsv1gBi7yQoqTO0n",
+      yearly: "price_1Sz0cTLBOsv1gBi7DKZyGbLy",
+    },
+    business: {
+      monthly: "price_1Sz0dZLBOsv1gBi7fqenphoj",
+      yearly: "price_1Sz0dZLBOsv1gBi72C7VtbH8",
+    },
+  } as const;
+
+  async function startCheckout(planKey: "pro" | "business") {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      window.location.href = "/auth";
+      return;
+    }
+
+    const priceId =
+      billing === "monthly"
+        ? PRICE_IDS[planKey].monthly
+        : PRICE_IDS[planKey].yearly;
+
+    const res = await fetch(`${API}/billing/checkout`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ price_id: priceId }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data?.detail || "Checkout failed");
+      return;
+    }
+
+    window.location.href = data.url;
+  }
 
   const monthly = {
     starter: 0,
@@ -56,7 +107,7 @@ export default function PricingPage() {
           "Upload history & statuses",
           "Priority support",
         ],
-        cta: { label: "Start Pro", href: "/register" },
+        cta: { label: "Start Pro", onClick: () => startCheckout("pro") },
         badge: "Most popular",
       },
       {
@@ -70,11 +121,14 @@ export default function PricingPage() {
           "Shared templates (coming next)",
           "Fastest support response",
         ],
-        cta: { label: "Start Business", href: "/register" },
+        cta: {
+          label: "Start Business",
+          onClick: () => startCheckout("business"),
+        },
         badge: "For teams",
       },
     ],
-    []
+    [billing]
   );
 
   const pricingFor = (planKey: "starter" | "pro" | "business") => {
@@ -146,14 +200,12 @@ export default function PricingPage() {
             budgeting.
           </p>
 
-          {/* ✅ Trust line (tiny, high impact) */}
           <p className="mx-auto mt-3 max-w-2xl text-sm text-slate-600">
             Built for landlords, property managers, and brokers who review real
             documents every week — and want clarity without the confusion.
           </p>
         </div>
 
-        {/* Tiny selected option bar */}
         <div className="mx-auto mt-8 max-w-5xl">
           <div className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur md:flex-row md:items-center md:justify-between">
             <div>
@@ -197,7 +249,6 @@ export default function PricingPage() {
           </div>
         </div>
 
-        {/* Plans grid */}
         <div className="mx-auto mt-8 max-w-5xl">
           <div className="grid gap-6 md:grid-cols-3">
             {plans.map((p) => {
@@ -238,7 +289,6 @@ export default function PricingPage() {
           </p>
         </div>
 
-        {/* FAQ strip */}
         <div className="mx-auto mt-12 max-w-4xl">
           <div className="grid gap-6 md:grid-cols-2">
             <div className="rounded-2xl border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
@@ -304,7 +354,7 @@ function PlanCard({
   price: number;
   period: string;
   features: string[];
-  cta: { label: string; href: string };
+  cta: { label: string; href?: string; onClick?: () => void };
   highlight?: boolean;
   showDeal: boolean;
   deal: null | { saveDollars: number; savePct: number; effectiveMonthly: number };
@@ -362,17 +412,31 @@ function PlanCard({
         ))}
       </ul>
 
-      <Link
-        href={cta.href}
-        className={[
-          "mt-6 inline-flex w-full items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold shadow-sm transition",
-          highlight
-            ? "bg-emerald-600 text-white hover:bg-emerald-700"
-            : "border border-slate-200 bg-white text-slate-900 hover:bg-slate-50",
-        ].join(" ")}
-      >
-        {cta.label}
-      </Link>
+      {cta.onClick ? (
+        <button
+          onClick={cta.onClick}
+          className={[
+            "mt-6 inline-flex w-full items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold shadow-sm transition",
+            highlight
+              ? "bg-emerald-600 text-white hover:bg-emerald-700"
+              : "border border-slate-200 bg-white text-slate-900 hover:bg-slate-50",
+          ].join(" ")}
+        >
+          {cta.label}
+        </button>
+      ) : (
+        <Link
+          href={cta.href || "/register"}
+          className={[
+            "mt-6 inline-flex w-full items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold shadow-sm transition",
+            highlight
+              ? "bg-emerald-600 text-white hover:bg-emerald-700"
+              : "border border-slate-200 bg-white text-slate-900 hover:bg-slate-50",
+          ].join(" ")}
+        >
+          {cta.label}
+        </Link>
+      )}
 
       <p className="mt-3 text-center text-xs text-slate-500">
         Cancel anytime (monthly). Yearly renews annually.
