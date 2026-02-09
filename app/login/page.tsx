@@ -1,184 +1,165 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Nav from "../../components/Nav";
+
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL || "https://doc-explainer-api.onrender.com";
 
 export default function LoginPage() {
   const router = useRouter();
 
-  const [email, setEmail] = useState("test@example.com");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [message, setMessage] = useState<string | null>(null);
+
+  const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleLogin(e?: React.FormEvent) {
-    e?.preventDefault();
-    setMessage(null);
+  useEffect(() => {
+    try {
+      const t = localStorage.getItem("token");
+      if (t) router.push("/dashboard");
+    } catch {}
+  }, [router]);
+
+  function persistToken(token: string) {
+    try {
+      localStorage.setItem("token", token);
+    } catch {}
+  }
+
+  async function safeReadError(res: Response) {
+    const text = await res.text().catch(() => "");
+    try {
+      const json = JSON.parse(text);
+      return json?.detail || json?.message || text || "Login failed";
+    } catch {
+      return text || "Login failed";
+    }
+  }
+
+  async function login() {
     setLoading(true);
+    setMsg("");
+
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/auth/login", {
+      const res = await fetch(`${API_BASE}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: cleanEmail, password: cleanPassword }),
       });
 
       if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || "Login failed");
+        const reason = await safeReadError(res);
+        setMsg(`❌ ${reason}`);
+        setLoading(false);
+        return;
       }
 
-      const data = await res.json();
-      localStorage.setItem("token", data.token);
+      const data = await res.json().catch(() => null);
+      const token = data?.token;
+
+      if (!token) {
+        setMsg("❌ Login succeeded but no token returned.");
+        setLoading(false);
+        return;
+      }
+
+      persistToken(token);
       router.push("/dashboard");
-    } catch (err: any) {
-      setMessage(err?.message ? `❌ ${err.message}` : "❌ Failed to login");
+    } catch (e: any) {
+      setMsg(`❌ Network error: ${e?.message || "Unknown error"}`);
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-white via-emerald-50/50 to-white">
-      <Nav />
+    <main className="min-h-screen bg-gradient-to-b from-white via-emerald-50/40 to-white">
+      <section className="mx-auto grid max-w-5xl grid-cols-1 gap-10 px-6 py-14 md:grid-cols-2 md:items-center">
+        {/* LEFT: Marketing */}
+        <div className="order-2 md:order-1">
+          <a
+            href="/"
+            className="inline-flex items-center text-sm font-semibold text-emerald-700 hover:underline"
+          >
+            ← Back to home
+          </a>
 
-      <section className="mx-auto max-w-6xl px-6 py-14">
-        <div className="grid items-center gap-10 md:grid-cols-2">
-          {/* Left: value prop */}
-          <div>
-            <p className="text-xs font-semibold tracking-widest text-emerald-700">
-              REAL ESTATE EXPLAINER
-            </p>
+          <h1 className="mt-6 text-4xl font-semibold tracking-tight text-slate-900">
+            Welcome back
+          </h1>
 
-            <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-900 md:text-5xl">
-              Welcome back.
-            </h1>
+          <p className="mt-4 max-w-lg text-base text-slate-600">
+            Log in to view your documents, reviews, and next steps before you
+            sign.
+          </p>
 
-            <p className="mt-4 max-w-xl text-base text-slate-600 md:text-lg">
-              Log in to review leases, HOA rules, addendums, and closing docs in
-              plain English — with highlighted fees, deadlines, and red flags
-              (non-legal).
-            </p>
-
-            <div className="mt-8 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-5 text-sm text-slate-700">
-              <p className="font-semibold text-slate-900">Tip</p>
-              <p className="mt-1 text-slate-600">
-                Pros use this to quickly identify renewal dates, penalties, and
-                responsibilities before sending docs to tenants/clients.
-              </p>
-            </div>
+          <div className="mt-6 rounded-2xl border border-slate-200 bg-white/70 p-4 text-sm text-slate-700">
+            Secure access • Your documents stay private
           </div>
+        </div>
 
-          {/* Right: login card */}
-          <div className="md:justify-self-end">
-            <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-xl backdrop-blur">
-              {/* Header */}
-              <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-sm">
-                  <span className="text-sm font-bold">RE</span>
-                </div>
-                <div>
-                  <div className="text-base font-semibold text-slate-900">
-                    Log in
-                  </div>
-                  <div className="text-sm text-slate-500">
-                    Access your dashboard & uploads
-                  </div>
-                </div>
-              </div>
+        {/* RIGHT: Login card */}
+        <div className="order-1 md:order-2">
+          <div className="rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
+            <label className="block text-sm font-semibold text-slate-800">
+              Email
+            </label>
+            <input
+              className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-4 focus:ring-emerald-100"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@email.com"
+              autoCapitalize="none"
+              autoCorrect="off"
+            />
 
-              <form onSubmit={handleLogin} className="mt-6 space-y-4">
-                {/* Email */}
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">
-                    Email
-                  </label>
-                  <input
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@company.com"
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
-                  />
-                </div>
+            <label className="mt-4 block text-sm font-semibold text-slate-800">
+              Password
+            </label>
+            <input
+              className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-4 focus:ring-emerald-100"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+            />
 
-                {/* Password */}
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">
-                    Password
-                  </label>
-                  <input
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    type="password"
-                    placeholder="••••••••"
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
-                  />
-                </div>
-
-                {/* Row: remember + forgot */}
-                <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-2 text-sm text-slate-600">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 rounded border-slate-300 text-emerald-600"
-                    />
-                    Remember me
-                  </label>
-
-                  <Link
-                    href="/support"
-                    className="text-sm font-medium text-emerald-700 hover:text-emerald-800"
-                  >
-                    Forgot password?
-                  </Link>
-                </div>
-
-                {/* Message */}
-                {message && (
-                  <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                    {message}
-                  </div>
-                )}
-
-                {/* Submit */}
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {loading ? "Logging in..." : "Log in"}
-                </button>
-
-                <p className="text-center text-sm text-slate-600">
-                  New here?{" "}
-                  <Link
-                    href="/register"
-                    className="font-semibold text-slate-900 hover:underline"
-                  >
-                    Create an account
-                  </Link>
-                </p>
-
-                <p className="text-center text-xs text-slate-500">
-                  Not legal advice. We highlight common attention areas to help
-                  you review faster.
-                </p>
-              </form>
+            <div className="mt-3 flex items-center justify-between">
+              <a
+                href="/forgot-password"
+                className="text-sm font-semibold text-emerald-700 hover:underline"
+              >
+                Forgot password?
+              </a>
             </div>
 
-            {/* tiny trust row */}
-            <div className="mt-4 flex items-center justify-center gap-3 text-xs text-slate-500">
-              <span className="rounded-full border border-slate-200 bg-white px-3 py-1">
-                Secure login
-              </span>
-              <span className="rounded-full border border-slate-200 bg-white px-3 py-1">
-                Fast summaries
-              </span>
-              <span className="rounded-full border border-slate-200 bg-white px-3 py-1">
-                Real estate focused
-              </span>
+            <button
+              onClick={login}
+              disabled={loading}
+              className="mt-5 w-full rounded-2xl bg-emerald-600 py-3 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60"
+            >
+              {loading ? "Logging in..." : "Login"}
+            </button>
+
+            {msg && (
+              <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+                {msg}
+              </div>
+            )}
+
+            <div className="mt-6 text-center text-sm text-slate-600">
+              Don’t have an account?{" "}
+              <a
+                href="/register"
+                className="font-semibold text-emerald-700 hover:underline"
+              >
+                Create one
+              </a>
             </div>
           </div>
         </div>

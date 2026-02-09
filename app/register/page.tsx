@@ -1,200 +1,190 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL || "https://doc-explainer-api.onrender.com";
 
 export default function RegisterPage() {
   const router = useRouter();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
+  const [password2, setPassword2] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
+  const [msg, setMsg] = useState<string>("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const canSubmit = useMemo(() => {
-    return (
-      !!email.trim() &&
-      !!password.trim() &&
-      password.trim().length >= 6 &&
-      acceptedTerms &&
-      !loading
-    );
-  }, [email, password, acceptedTerms, loading]);
+  useEffect(() => {
+    try {
+      const t = localStorage.getItem("token");
+      if (t) router.push("/dashboard");
+    } catch {}
+  }, [router]);
 
-  async function handleRegister() {
-    setError(null);
+  function persistToken(token: string) {
+    try {
+      localStorage.setItem("token", token);
+    } catch {}
+  }
 
-    const e = email.trim();
-    const p = password.trim();
+  async function safeReadError(res: Response) {
+    const text = await res.text().catch(() => "");
+    try {
+      const json = JSON.parse(text);
+      return json?.detail || json?.message || text || "Signup failed";
+    } catch {
+      return text || "Signup failed";
+    }
+  }
 
-    if (!e) {
-      setError("Please enter your email.");
-      return;
-    }
-    if (!p) {
-      setError("Please enter a password.");
-      return;
-    }
-    if (p.length < 6) {
-      setError("Password must be at least 6 characters.");
-      return;
-    }
-    if (!acceptedTerms) {
-      setError("Please accept the Terms and Privacy Policy to continue.");
-      return;
-    }
+  async function register(e: React.FormEvent) {
+    e.preventDefault();
+    setMsg("");
+
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
+
+    if (!cleanEmail) return setMsg("❌ Please enter your email.");
+    if (cleanPassword.length < 8)
+      return setMsg("❌ Password must be at least 8 characters.");
+    if (cleanPassword !== password2.trim())
+      return setMsg("❌ Passwords do not match.");
+    if (!acceptedTerms)
+      return setMsg("❌ You must agree to the Terms and Privacy Policy.");
 
     setLoading(true);
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/auth/register", {
+      const res = await fetch(`${API_BASE}/auth/register`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email: e, password: p }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: cleanEmail, password: cleanPassword }),
       });
 
       if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || "Registration failed");
+        const reason = await safeReadError(res);
+        setMsg(`❌ ${reason}`);
+        return;
       }
 
-      const data = await res.json();
-      localStorage.setItem("token", data.token);
+      const data = await res.json().catch(() => null);
+      const token = data?.token;
+
+      if (!token) {
+        setMsg("❌ Signup succeeded but no token returned.");
+        return;
+      }
+
+      persistToken(token);
       router.push("/dashboard");
-    } catch (err: any) {
-      setError(err?.message || "Failed to register");
+    } catch (e: any) {
+      setMsg(`❌ Network error: ${e?.message || "Unknown error"}`);
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-white via-indigo-50 to-white">
-      {/* Top Nav */}
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-full bg-indigo-600" />
-          <span className="font-semibold text-slate-900">
-            Document Explainer
-          </span>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <Link
-            href="/login"
-            className="text-sm text-slate-700 hover:text-slate-900"
-          >
-            Login
-          </Link>
-        </div>
-      </header>
-
-      {/* Register Card */}
-      <section className="mx-auto max-w-6xl px-6 py-16">
-        <div className="mx-auto max-w-md rounded-2xl border border-slate-200 bg-white/80 p-6 shadow-lg backdrop-blur">
-          {/* window dots */}
-          <div className="mb-5 flex items-center gap-2">
-            <span className="h-3 w-3 rounded-full bg-rose-400" />
-            <span className="h-3 w-3 rounded-full bg-amber-300" />
-            <span className="h-3 w-3 rounded-full bg-emerald-300" />
-          </div>
-
+    <main className="min-h-screen bg-gradient-to-b from-white via-emerald-50/40 to-white">
+      <section className="mx-auto max-w-md px-6 py-14">
+        <div className="rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
           <h1 className="text-2xl font-semibold text-slate-900">
             Create your account
           </h1>
           <p className="mt-1 text-sm text-slate-600">
-            Start free — 3 document explanations included.
+            You’ll be able to upload your first document right away.
           </p>
 
-          <div className="mt-6 space-y-4">
-            <div>
-              <label className="text-xs font-semibold text-slate-700">
-                Email
-              </label>
-              <input
-                type="email"
-                placeholder="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-indigo-400"
-              />
-            </div>
+          <form onSubmit={register} className="mt-6">
+            <label className="block text-sm font-semibold text-slate-800">
+              Email
+            </label>
+            <input
+              className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-4 focus:ring-emerald-100"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@email.com"
+              autoCapitalize="none"
+              autoCorrect="off"
+              inputMode="email"
+            />
 
-            <div>
-              <label className="text-xs font-semibold text-slate-700">
-                Password
-              </label>
-              <input
-                type="password"
-                placeholder="Password (6+ characters)"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-indigo-400"
-              />
-              <p className="mt-2 text-xs text-slate-500">
-                Tip: use 8+ characters for stronger security.
-              </p>
-            </div>
+            <label className="mt-4 block text-sm font-semibold text-slate-800">
+              Password
+            </label>
+            <input
+              className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-4 focus:ring-emerald-100"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="At least 8 characters"
+            />
 
-            {/* ✅ Terms checkbox */}
-            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+            <label className="mt-4 block text-sm font-semibold text-slate-800">
+              Confirm password
+            </label>
+            <input
+              className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-4 focus:ring-emerald-100"
+              type="password"
+              value={password2}
+              onChange={(e) => setPassword2(e.target.value)}
+              placeholder="Repeat password"
+            />
+
+            {/* ✅ Terms & Privacy */}
+            <label className="mt-4 flex items-start gap-2 text-sm text-slate-600">
               <input
                 type="checkbox"
                 checked={acceptedTerms}
                 onChange={(e) => setAcceptedTerms(e.target.checked)}
-                className="mt-1 h-4 w-4 accent-indigo-600"
+                className="mt-1 accent-emerald-600"
               />
-              <div className="text-sm text-slate-700">
+              <span>
                 I agree to the{" "}
-                <Link href="/terms" className="text-indigo-600 hover:underline">
-                  Terms
-                </Link>{" "}
+                <a
+                  href="/terms"
+                  target="_blank"
+                  className="font-semibold text-emerald-700 hover:underline"
+                >
+                  Terms of Service
+                </a>{" "}
                 and{" "}
-                <Link
+                <a
                   href="/privacy"
-                  className="text-indigo-600 hover:underline"
+                  target="_blank"
+                  className="font-semibold text-emerald-700 hover:underline"
                 >
                   Privacy Policy
-                </Link>
+                </a>
                 .
-                <div className="mt-1 text-xs text-slate-500">
-                  Real Estate Explainer provides non-legal summaries and
-                  highlights for clarity — not legal advice.
-                </div>
-              </div>
+              </span>
             </label>
 
             <button
-              onClick={handleRegister}
-              disabled={!canSubmit}
-              className="w-full rounded-xl bg-indigo-600 py-3 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+              disabled={loading || !acceptedTerms}
+              className="mt-5 w-full rounded-2xl bg-emerald-600 py-3 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60"
             >
-              {loading ? "Creating account…" : "Create account"}
+              {loading ? "Creating..." : "Create account"}
             </button>
+          </form>
 
-            {error && (
-              <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-                ❌ {error}
-              </p>
-            )}
+          {msg && (
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+              {msg}
+            </div>
+          )}
 
-            <p className="pt-2 text-center text-sm text-slate-600">
-              Already have an account?{" "}
-              <Link href="/login" className="text-indigo-600 hover:underline">
-                Log in
-              </Link>
-            </p>
-
-            <p className="text-center text-xs text-slate-500">
-              By creating an account you confirm you’re authorized to upload the
-              documents you provide.
-            </p>
+          <div className="mt-6 text-center text-sm text-slate-600">
+            Already have an account?{" "}
+            <a
+              href="/login"
+              className="font-semibold text-emerald-700 hover:underline"
+            >
+              Log in
+            </a>
           </div>
         </div>
       </section>
