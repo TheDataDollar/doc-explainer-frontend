@@ -8,8 +8,8 @@ import { useMemo, useState } from "react";
 
 /**
  * Choose your yearly price:
- * - 420  => $420/yr (nice entry yearly)
- * - 1100 => $1100/yr (premium yearly)
+ * - 420  => $420/yr
+ * - 1100 => $1100/yr
  */
 const YEARLY_PRICE: 420 | 1100 = 420;
 
@@ -41,7 +41,7 @@ export default function PricingPage() {
   async function startCheckout(planKey: "pro" | "business") {
     const token = localStorage.getItem("token");
     if (!token) {
-      window.location.href = "/auth";
+      window.location.href = "/login";
       return;
     }
 
@@ -50,22 +50,31 @@ export default function PricingPage() {
         ? PRICE_IDS[planKey].monthly
         : PRICE_IDS[planKey].yearly;
 
-    const res = await fetch(`${API}/billing/checkout`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ price_id: priceId }),
-    });
+    try {
+      const res = await fetch(`${API}/billing/checkout`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ price_id: priceId }),
+      });
 
-    const data = await res.json();
-    if (!res.ok) {
-      alert(data?.detail || "Checkout failed");
-      return;
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data?.detail || "Checkout failed");
+        return;
+      }
+
+      if (!data?.url) {
+        alert("Checkout failed: missing Stripe url");
+        return;
+      }
+
+      window.location.href = data.url;
+    } catch (e: any) {
+      alert(e?.message || "Checkout failed");
     }
-
-    window.location.href = data.url;
   }
 
   const monthly = {

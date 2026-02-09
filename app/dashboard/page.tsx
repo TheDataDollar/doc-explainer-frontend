@@ -1,3 +1,4 @@
+// app/dashboard/page.tsx (FULL COPY / REPLACE)
 "use client";
 
 import Nav from "@/components/Nav";
@@ -29,7 +30,9 @@ type ResponseEvent = {
 };
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://doc-explainer-api.onrender.com";
 
 function cn(...s: Array<string | false | null | undefined>) {
   return s.filter(Boolean).join(" ");
@@ -82,6 +85,43 @@ export default function DashboardPage() {
   const [inboxNew, setInboxNew] = useState(0);
   const [inboxTotal, setInboxTotal] = useState(0);
 
+  async function reload() {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      router.push("/login");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const [meRes, docsRes] = await Promise.all([
+        fetch(`${API_BASE}/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        }),
+        fetch(`${API_BASE}/documents`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        }),
+      ]);
+
+      if (!meRes.ok) throw new Error("Failed to load account");
+      if (!docsRes.ok) throw new Error("Failed to load documents");
+
+      const meData: MeResponse = await meRes.json();
+      const docsData: DocumentItem[] = await docsRes.json();
+
+      setMe(meData);
+      setDocs(Array.isArray(docsData) ? docsData : []);
+    } catch (e: any) {
+      setError(e?.message || "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -99,9 +139,11 @@ export default function DashboardPage() {
         const [meRes, docsRes] = await Promise.all([
           fetch(`${API_BASE}/me`, {
             headers: { Authorization: `Bearer ${token}` },
+            cache: "no-store",
           }),
           fetch(`${API_BASE}/documents`, {
             headers: { Authorization: `Bearer ${token}` },
+            cache: "no-store",
           }),
         ]);
 
@@ -195,9 +237,12 @@ export default function DashboardPage() {
             <p className="mt-1 text-sm text-slate-600">
               Track leases, HOA docs, and closing paperwork in one place.
             </p>
+            <p className="mt-1 text-xs text-slate-500">
+              API: <span className="font-mono">{API_BASE}</span>
+            </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             {me?.is_paid ? (
               <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
                 Paid Plan Active
@@ -207,6 +252,14 @@ export default function DashboardPage() {
                 Free Plan
               </span>
             )}
+
+            <button
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+              onClick={reload}
+              title="Refresh account + documents"
+            >
+              Refresh
+            </button>
 
             {/* ✅ Inbox shortcut (premium) */}
             <button
@@ -300,7 +353,8 @@ export default function DashboardPage() {
                   <div className="mt-4 divide-y divide-slate-200">
                     {recentDocs.length === 0 ? (
                       <div className="py-10 text-center text-sm text-slate-600">
-                        No documents in this view yet. Click <b>New upload</b> to add a file.
+                        No documents in this view yet. Click <b>New upload</b> to
+                        add a file.
                       </div>
                     ) : (
                       recentDocs.map((d) => (
@@ -309,7 +363,9 @@ export default function DashboardPage() {
                           name={d.original_filename}
                           status={d.status}
                           date={prettyDate(d.created_at)}
-                          onOpen={() => router.push(`/dashboard/history/${d.document_id}`)}
+                          onOpen={() =>
+                            router.push(`/dashboard/history/${d.document_id}`)
+                          }
                         />
                       ))
                     )}
@@ -324,7 +380,8 @@ export default function DashboardPage() {
                         Responses inbox
                       </h2>
                       <p className="mt-1 text-sm text-slate-600">
-                        A central place for updates, detected changes, and your notes across all documents.
+                        A central place for updates, detected changes, and your
+                        notes across all documents.
                       </p>
                     </div>
 
@@ -337,7 +394,11 @@ export default function DashboardPage() {
                   </div>
 
                   <div className="mt-5 grid gap-4 sm:grid-cols-3">
-                    <MiniStat label="New updates" value={String(inboxNew)} highlight />
+                    <MiniStat
+                      label="New updates"
+                      value={String(inboxNew)}
+                      highlight
+                    />
                     <MiniStat label="Total items" value={String(inboxTotal)} />
                     <MiniStat
                       label="Focus"
@@ -346,9 +407,12 @@ export default function DashboardPage() {
                   </div>
 
                   <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-                    <div className="font-semibold text-slate-900">How this works</div>
+                    <div className="font-semibold text-slate-900">
+                      How this works
+                    </div>
                     <div className="mt-1 text-slate-600">
-                      Each document hub can receive updates. This inbox aggregates them so you don’t miss changes.
+                      Each document hub can receive updates. This inbox
+                      aggregates them so you don’t miss changes.
                     </div>
                   </div>
                 </div>
@@ -366,14 +430,32 @@ export default function DashboardPage() {
                   </p>
 
                   <div className="mt-4 flex flex-wrap gap-2">
-                    <FilterPill label="All" active={docFilter === "all"} onClick={() => setDocFilter("all")} />
-                    <FilterPill label="Uploaded" active={docFilter === "uploaded"} onClick={() => setDocFilter("uploaded")} />
-                    <FilterPill label="In review" active={docFilter === "in_review"} onClick={() => setDocFilter("in_review")} />
-                    <FilterPill label="Completed" active={docFilter === "completed"} onClick={() => setDocFilter("completed")} />
+                    <FilterPill
+                      label="All"
+                      active={docFilter === "all"}
+                      onClick={() => setDocFilter("all")}
+                    />
+                    <FilterPill
+                      label="Uploaded"
+                      active={docFilter === "uploaded"}
+                      onClick={() => setDocFilter("uploaded")}
+                    />
+                    <FilterPill
+                      label="In review"
+                      active={docFilter === "in_review"}
+                      onClick={() => setDocFilter("in_review")}
+                    />
+                    <FilterPill
+                      label="Completed"
+                      active={docFilter === "completed"}
+                      onClick={() => setDocFilter("completed")}
+                    />
                   </div>
 
                   <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-                    <div className="font-semibold text-slate-900">Output Builder</div>
+                    <div className="font-semibold text-slate-900">
+                      Output Builder
+                    </div>
                     <div className="mt-1 text-slate-600">
                       {hasSavedOutputBuilder
                         ? "Your last settings are saved from Upload."
@@ -432,7 +514,9 @@ export default function DashboardPage() {
                     </div>
                     <div className="flex justify-between">
                       <span>Plan</span>
-                      <span className="font-medium">{me?.is_paid ? "Pro (Paid)" : "Free"}</span>
+                      <span className="font-medium">
+                        {me?.is_paid ? "Pro (Paid)" : "Free"}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span>Total documents</span>
@@ -441,7 +525,9 @@ export default function DashboardPage() {
                     {!me?.is_paid && (
                       <div className="flex justify-between">
                         <span>Free usage</span>
-                        <span className="font-medium">{me?.free_docs_used ?? 0}/3</span>
+                        <span className="font-medium">
+                          {me?.free_docs_used ?? 0}/3
+                        </span>
                       </div>
                     )}
                   </div>
@@ -456,7 +542,9 @@ export default function DashboardPage() {
 
                 {/* Support */}
                 <div className="rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
-                  <h3 className="text-sm font-semibold text-slate-900">Need help?</h3>
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    Need help?
+                  </h3>
                   <p className="mt-1 text-sm text-slate-600">
                     Our support team understands real estate docs.
                   </p>
@@ -561,7 +649,9 @@ function DocumentRow({
       </div>
 
       <div className="flex items-center gap-3">
-        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusStyles}`}>
+        <span
+          className={`rounded-full px-3 py-1 text-xs font-semibold ${statusStyles}`}
+        >
           {label}
         </span>
         <button
