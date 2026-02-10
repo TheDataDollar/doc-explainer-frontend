@@ -1,9 +1,10 @@
-// app/dashboard/responses/page.tsx
 "use client";
 
 import Nav from "../../../components/Nav";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+
+/* ---------- Types ---------- */
 
 type ResponseEvent = {
   id: string;
@@ -22,6 +23,8 @@ type InboxItem = {
   isNew: boolean;
   kind: ResponseEvent["kind"];
 };
+
+/* ---------- Utils ---------- */
 
 function cn(...s: Array<string | false | null | undefined>) {
   return s.filter(Boolean).join(" ");
@@ -59,12 +62,7 @@ function loadAllInboxItems(): InboxItem[] {
       const raw = localStorage.getItem(key);
       if (!raw) continue;
 
-      let parsed: any = [];
-      try {
-        parsed = JSON.parse(raw);
-      } catch {
-        parsed = [];
-      }
+      const parsed = JSON.parse(raw);
       if (!Array.isArray(parsed)) continue;
 
       for (const e of parsed as ResponseEvent[]) {
@@ -79,17 +77,12 @@ function loadAllInboxItems(): InboxItem[] {
         });
       }
     }
-  } catch {
-    // ignore
-  }
+  } catch {}
 
-  items.sort((a, b) => {
-    const ad = new Date(a.createdAt).getTime();
-    const bd = new Date(b.createdAt).getTime();
-    return (isNaN(bd) ? 0 : bd) - (isNaN(ad) ? 0 : ad);
-  });
-
-  return items;
+  return items.sort(
+    (a, b) =>
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
 }
 
 function markDocRead(docId: number) {
@@ -100,12 +93,14 @@ function markDocRead(docId: number) {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return;
 
-    const updated = parsed.map((e: any) => ({ ...e, isNew: false }));
-    localStorage.setItem(key, JSON.stringify(updated));
-  } catch {
-    // ignore
-  }
+    localStorage.setItem(
+      key,
+      JSON.stringify(parsed.map((e: any) => ({ ...e, isNew: false })))
+    );
+  } catch {}
 }
+
+/* ---------- Page ---------- */
 
 export default function ResponsesInboxPage() {
   const [items, setItems] = useState<InboxItem[]>([]);
@@ -113,15 +108,16 @@ export default function ResponsesInboxPage() {
 
   useEffect(() => {
     setItems(loadAllInboxItems());
-
     const t = window.setInterval(() => {
       setItems(loadAllInboxItems());
     }, 2000);
-
     return () => window.clearInterval(t);
   }, []);
 
-  const newCount = useMemo(() => items.filter((i) => i.isNew).length, [items]);
+  const newCount = useMemo(
+    () => items.filter((i) => i.isNew).length,
+    [items]
+  );
 
   const visible = useMemo(() => {
     return filter === "new" ? items.filter((i) => i.isNew) : items;
@@ -132,177 +128,156 @@ export default function ResponsesInboxPage() {
       <Nav />
 
       <section className="mx-auto max-w-6xl px-6 py-10">
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700">
-              Dashboard • Inbox
-            </div>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">
-              Responses inbox
-            </h1>
-            <p className="mt-1 text-sm text-slate-600">
-              Where updates land. Jump into the document hub to resolve items.
-            </p>
+        {/* Header */}
+        <div className="mb-10">
+          <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700">
+            Dashboard • Responses
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="inline-flex overflow-hidden rounded-full border border-slate-200 bg-white shadow-sm">
-              <button
-                onClick={() => setFilter("new")}
-                className={cn(
-                  "px-4 py-2 text-sm font-semibold",
-                  filter === "new"
-                    ? "bg-slate-900 text-white"
-                    : "text-slate-700 hover:bg-slate-50"
-                )}
-              >
-                New
-                {newCount > 0 ? (
-                  <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
-                    {newCount}
-                  </span>
-                ) : null}
-              </button>
-              <button
-                onClick={() => setFilter("all")}
-                className={cn(
-                  "px-4 py-2 text-sm font-semibold",
-                  filter === "all"
-                    ? "bg-slate-900 text-white"
-                    : "text-slate-700 hover:bg-slate-50"
-                )}
-              >
-                All
-              </button>
-            </div>
+          <h1 className="mt-4 text-3xl font-semibold text-slate-900">
+            Document updates
+          </h1>
 
-            <Link
-              href="/dashboard/history"
-              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
-            >
-              Document history
-            </Link>
-          </div>
+          <p className="mt-2 max-w-2xl text-sm text-slate-600">
+            This inbox shows important updates and notes for your documents.
+            Click an item to open the document and review it.
+          </p>
         </div>
 
-        <div className="mt-8 grid gap-6 lg:grid-cols-3">
-          <div className="space-y-6 lg:col-span-1">
-            <div className="rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
-              <h2 className="text-base font-semibold text-slate-900">Overview</h2>
-              <div className="mt-3 space-y-2 text-sm text-slate-700">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-600">New updates</span>
-                  <span className="font-semibold text-slate-900">{newCount}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-600">Total items</span>
-                  <span className="font-semibold text-slate-900">{items.length}</span>
-                </div>
-              </div>
-
-              <p className="mt-4 text-xs text-slate-500">
-                Frontend-only inbox. Once backend is wired, this becomes real notifications + change tracking.
-              </p>
-            </div>
-
-            <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-6 text-sm text-emerald-900">
-              <div className="font-semibold">Workflow</div>
-              <div className="mt-1 text-emerald-800/90">
-                Inbox → open doc hub → resolve → export/share
-              </div>
-            </div>
+        {/* Controls */}
+        <div className="mb-8 flex flex-wrap items-center gap-3">
+          <div className="inline-flex overflow-hidden rounded-full border border-slate-200 bg-white shadow-sm">
+            <button
+              onClick={() => setFilter("new")}
+              className={cn(
+                "px-5 py-2 text-sm font-semibold",
+                filter === "new"
+                  ? "bg-slate-900 text-white"
+                  : "text-slate-700 hover:bg-slate-50"
+              )}
+            >
+              New
+              {newCount > 0 && (
+                <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+                  {newCount}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setFilter("all")}
+              className={cn(
+                "px-5 py-2 text-sm font-semibold",
+                filter === "all"
+                  ? "bg-slate-900 text-white"
+                  : "text-slate-700 hover:bg-slate-50"
+              )}
+            >
+              All
+            </button>
           </div>
 
-          <div className="space-y-4 lg:col-span-2">
-            {visible.length === 0 ? (
-              <div className="rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
-                <div className="text-base font-semibold text-slate-900">
-                  {filter === "new" ? "No new responses" : "No responses yet"}
-                </div>
-                <p className="mt-1 text-sm text-slate-600">
-                  Upload documents and updates will appear here.
-                </p>
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <Link
-                    href="/upload"
-                    className="inline-flex rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
-                  >
-                    Upload a document
-                  </Link>
-                  <Link
-                    href="/dashboard/history"
-                    className="inline-flex rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
-                  >
-                    View documents
-                  </Link>
-                </div>
-              </div>
-            ) : (
-              visible.map((i, idx) => (
-                <div
-                  key={`${i.docId}-${i.createdAt}-${idx}`}
-                  className="rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <KindPill kind={i.kind} />
-                        {i.isNew ? (
-                          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
-                            New
-                          </span>
-                        ) : null}
-                      </div>
+          <Link
+            href="/dashboard/history"
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+          >
+            View all documents
+          </Link>
+        </div>
 
-                      <div className="mt-2 text-sm font-semibold text-slate-900">
-                        {i.title}
-                      </div>
-
-                      {i.body ? (
-                        <div className="mt-1 whitespace-pre-wrap text-sm text-slate-700 line-clamp-3">
-                          {i.body}
-                        </div>
-                      ) : null}
-
-                      <div className="mt-3 text-xs text-slate-500">
-                        Doc ID:{" "}
-                        <span className="font-semibold text-slate-700">{i.docId}</span>
-                        <span className="mx-2 text-slate-300">•</span>
-                        {prettyDate(i.createdAt)}
-                      </div>
+        {/* Inbox */}
+        {visible.length === 0 ? (
+          <div className="rounded-3xl border border-slate-200 bg-white/80 p-10 text-center shadow-sm backdrop-blur">
+            <h3 className="text-lg font-semibold text-slate-900">
+              {filter === "new" ? "No new updates" : "No updates yet"}
+            </h3>
+            <p className="mt-2 text-sm text-slate-600">
+              Upload a document and updates will appear here as they’re generated.
+            </p>
+            <div className="mt-6 flex justify-center gap-3">
+              <Link
+                href="/upload"
+                className="rounded-2xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
+              >
+                Upload a document
+              </Link>
+              <Link
+                href="/dashboard/history"
+                className="rounded-2xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+              >
+                Browse documents
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {visible.map((i, idx) => (
+              <div
+                key={`${i.docId}-${i.createdAt}-${idx}`}
+                className={cn(
+                  "rounded-2xl border bg-white/80 p-5 shadow-sm backdrop-blur transition",
+                  i.isNew
+                    ? "border-emerald-200"
+                    : "border-slate-200"
+                )}
+              >
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <KindPill kind={i.kind} />
+                      {i.isNew && (
+                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+                          New
+                        </span>
+                      )}
                     </div>
 
-                    <div className="flex flex-col gap-2">
-                      <Link
-                        href={`/dashboard/history/${i.docId}`}
-                        onClick={() => markDocRead(i.docId)}
-                        className="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
-                      >
-                        Open document
-                      </Link>
+                    <div className="mt-2 text-sm font-semibold text-slate-900">
+                      {i.title}
+                    </div>
 
-                      {i.isNew ? (
-                        <button
-                          onClick={() => {
-                            markDocRead(i.docId);
-                            setItems(loadAllInboxItems());
-                          }}
-                          className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
-                        >
-                          Mark read
-                        </button>
-                      ) : null}
+                    {i.body && (
+                      <div className="mt-1 text-sm text-slate-600 line-clamp-2">
+                        {i.body}
+                      </div>
+                    )}
+
+                    <div className="mt-2 text-xs text-slate-500">
+                      Document #{i.docId} • {prettyDate(i.createdAt)}
                     </div>
                   </div>
+
+                  <div className="flex gap-2">
+                    <Link
+                      href={`/dashboard/history/${i.docId}`}
+                      onClick={() => markDocRead(i.docId)}
+                      className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
+                    >
+                      Open document
+                    </Link>
+
+                    {i.isNew && (
+                      <button
+                        onClick={() => {
+                          markDocRead(i.docId);
+                          setItems(loadAllInboxItems());
+                        }}
+                        className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+                      >
+                        Mark read
+                      </button>
+                    )}
+                  </div>
                 </div>
-              ))
-            )}
+              </div>
+            ))}
           </div>
-        </div>
+        )}
       </section>
     </main>
   );
 }
+
+/* ---------- UI Bits ---------- */
 
 function KindPill({ kind }: { kind: "system" | "ai" | "user" }) {
   const cls =
