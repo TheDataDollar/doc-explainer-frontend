@@ -128,7 +128,6 @@ export default function DashboardPage() {
 
     load();
 
-    // poll inbox counts (frontend-only)
     const refreshInbox = () => {
       const c = getInboxCounts();
       setInboxNew(c.newCount);
@@ -225,7 +224,6 @@ export default function DashboardPage() {
     <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-50 via-white to-white">
       <Nav />
 
-      {/* Mobile-first padding + width */}
       <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-10">
         {/* Hero */}
         <div className="relative overflow-hidden rounded-[24px] border border-slate-200 bg-white/70 p-4 shadow-sm backdrop-blur sm:p-6 md:p-8">
@@ -266,10 +264,9 @@ export default function DashboardPage() {
                 paperwork — with clear risks, key terms, and next steps.
               </p>
 
-              {/* Mobile-first actions: stack nicely */}
               <div className="mt-4 grid gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
                 <button
-                  className="rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
+                  className="w-full sm:w-auto rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
                   onClick={() => router.push("/upload")}
                 >
                   New upload
@@ -277,7 +274,7 @@ export default function DashboardPage() {
 
                 <button
                   className={cn(
-                    "rounded-2xl border bg-white px-5 py-3 text-sm font-semibold shadow-sm hover:bg-slate-50",
+                    "w-full sm:w-auto rounded-2xl border bg-white px-5 py-3 text-sm font-semibold shadow-sm hover:bg-slate-50",
                     inboxNew > 0 ? "border-emerald-200" : "border-slate-200"
                   )}
                   onClick={() => router.push("/dashboard/responses")}
@@ -293,7 +290,7 @@ export default function DashboardPage() {
                 </button>
 
                 <button
-                  className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+                  className="w-full sm:w-auto rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
                   onClick={() => router.push("/draft?from=dashboard")}
                 >
                   Draft a document
@@ -301,14 +298,14 @@ export default function DashboardPage() {
 
                 {me?.is_paid ? (
                   <button
-                    className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+                    className="w-full sm:w-auto rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
                     onClick={openBillingPortal}
                   >
                     Manage billing
                   </button>
                 ) : (
                   <button
-                    className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+                    className="w-full sm:w-auto rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
                     onClick={() => router.push("/pricing")}
                   >
                     Upgrade
@@ -323,7 +320,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Right card — full width on mobile */}
+            {/* Right card */}
             <div className="w-full rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-sm backdrop-blur sm:p-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -394,7 +391,6 @@ export default function DashboardPage() {
 
         {!loading && !error && (
           <>
-            {/* KPI grid mobile-first */}
             <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <KpiCard
                 title="Documents (30 days)"
@@ -425,7 +421,7 @@ export default function DashboardPage() {
             <div className="mt-8 grid gap-6 lg:grid-cols-3">
               <div className="lg:col-span-2 space-y-6">
                 <div className="rounded-[24px] border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur sm:p-6">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <h2 className="text-lg font-semibold text-slate-900">
                         Recent documents
@@ -435,29 +431,36 @@ export default function DashboardPage() {
                       </p>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
-                      <FilterChip label="All" active={docFilter === "all"} onClick={() => setDocFilter("all")} />
-                      <FilterChip
-                        label="Uploaded"
-                        active={docFilter === "uploaded"}
-                        onClick={() => setDocFilter("uploaded")}
-                      />
-                      <FilterChip
-                        label="In review"
-                        active={docFilter === "in_review"}
-                        onClick={() => setDocFilter("in_review")}
-                      />
-                      <FilterChip
-                        label="Completed"
-                        active={docFilter === "completed"}
-                        onClick={() => setDocFilter("completed")}
-                      />
-                      <button
-                        className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
-                        onClick={() => router.push("/dashboard/history")}
-                      >
-                        View all
-                      </button>
+                    {/* ✅ Mobile: scrollable filter row so nothing gets cut off */}
+                    <div className="w-full sm:w-auto">
+                      <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+                        <FilterChip
+                          label="All"
+                          active={docFilter === "all"}
+                          onClick={() => setDocFilter("all")}
+                        />
+                        <FilterChip
+                          label="Uploaded"
+                          active={docFilter === "uploaded"}
+                          onClick={() => setDocFilter("uploaded")}
+                        />
+                        <FilterChip
+                          label="In review"
+                          active={docFilter === "in_review"}
+                          onClick={() => setDocFilter("in_review")}
+                        />
+                        <FilterChip
+                          label="Completed"
+                          active={docFilter === "completed"}
+                          onClick={() => setDocFilter("completed")}
+                        />
+                        <button
+                          className="shrink-0 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+                          onClick={() => router.push("/dashboard/history")}
+                        >
+                          View all
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -473,7 +476,9 @@ export default function DashboardPage() {
                           name={d.original_filename}
                           status={d.status}
                           date={prettyDate(d.created_at)}
-                          onOpen={() => router.push(`/dashboard/history/${d.document_id}`)}
+                          onOpen={() =>
+                            router.push(`/dashboard/history/${d.document_id}`)
+                          }
                         />
                       ))
                     )}
@@ -629,7 +634,7 @@ function FilterChip({
     <button
       onClick={onClick}
       className={cn(
-        "rounded-full px-3 py-1 text-xs font-semibold border transition shadow-sm",
+        "shrink-0 rounded-full px-3 py-2 text-xs font-semibold border transition shadow-sm",
         active
           ? "border-emerald-200 bg-emerald-50 text-emerald-800"
           : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
