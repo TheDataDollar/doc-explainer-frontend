@@ -45,7 +45,6 @@ export default function Nav() {
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [inboxNew, setInboxNew] = useState(0);
-
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
 
@@ -100,12 +99,13 @@ export default function Nav() {
     { href: "/support", label: "Support" },
   ];
 
-  // ✅ FINAL logged-in order (Settings ALWAYS last)
+  // ✅ FINAL logged-in nav (History restored, Settings last)
   const loggedInLinks: NavItem[] = useMemo(
     () => [
       { href: "/dashboard", label: "Dashboard" },
       { href: "/upload", label: "Upload" },
       { href: "/draft", label: "Draft" },
+      { href: "/dashboard/history", label: "History" }, // ✅ RESTORED
       {
         href: "/dashboard/responses",
         label: "Responses",
@@ -177,12 +177,10 @@ export default function Nav() {
                 New upload
               </Link>
 
-              {/* User menu */}
               <div className="relative" ref={userRef}>
                 <button
                   onClick={() => setUserOpen((v) => !v)}
                   className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm hover:bg-slate-50"
-                  aria-label="Account menu"
                 >
                   <span className="text-sm font-bold">⋯</span>
                 </button>
