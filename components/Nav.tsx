@@ -105,7 +105,7 @@ export default function Nav() {
       { href: "/dashboard", label: "Dashboard" },
       { href: "/upload", label: "Upload" },
       { href: "/draft", label: "Draft" },
-      { href: "/dashboard/history", label: "History" }, // ✅ RESTORED
+      { href: "/dashboard/history", label: "History" },
       {
         href: "/dashboard/responses",
         label: "Responses",
@@ -124,29 +124,31 @@ export default function Nav() {
     "text-slate-900 font-semibold underline underline-offset-[18px] decoration-emerald-300";
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-slate-200/70 bg-white/80 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6 md:py-4">
-        {/* Brand */}
+    <header className="sticky top-0 z-50 w-full max-w-full overflow-x-clip border-b border-slate-200/70 bg-white/80 backdrop-blur">
+      <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-3 md:px-6 md:py-4">
+        {/* Brand (MOBILE SAFE: no forced min-width, text truncates) */}
         <Link
           href={isLoggedIn ? "/dashboard" : "/"}
-          className="flex items-center gap-3 min-w-[220px]"
+          className="flex min-w-0 items-center gap-3"
+          aria-label="Real Estate Explainer"
         >
-          <div className="grid h-10 w-10 place-items-center rounded-2xl bg-emerald-600 text-white shadow-sm">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-emerald-600 text-white shadow-sm">
             <span className="text-sm font-black">RE</span>
           </div>
-          <div className="leading-tight">
-            <div className="text-sm font-semibold text-slate-900">
+
+          <div className="min-w-0 leading-tight">
+            <div className="truncate text-sm font-semibold text-slate-900">
               Real Estate Explainer
             </div>
-            <div className="text-xs text-slate-500">
+            <div className="truncate text-xs text-slate-500">
               Leases • HOAs • Closing docs
             </div>
           </div>
         </Link>
 
         {/* Desktop nav */}
-        <nav className="hidden md:flex flex-1 items-center justify-center">
-          <div className="flex items-center gap-6">
+        <nav className="hidden md:flex min-w-0 flex-1 items-center justify-center">
+          <div className="flex min-w-0 items-center gap-6">
             {navLinks.map((l) => (
               <Link
                 key={l.href}
@@ -167,26 +169,28 @@ export default function Nav() {
         </nav>
 
         {/* Right actions */}
-        <div className="hidden md:flex items-center justify-end gap-3 min-w-[220px]">
+        <div className="hidden md:flex min-w-0 items-center justify-end gap-3">
           {isLoggedIn ? (
             <>
               <Link
                 href="/upload"
-                className="rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
+                className="shrink-0 rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
               >
                 New upload
               </Link>
 
-              <div className="relative" ref={userRef}>
+              <div className="relative shrink-0" ref={userRef}>
                 <button
                   onClick={() => setUserOpen((v) => !v)}
                   className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm hover:bg-slate-50"
+                  aria-label="Open menu"
+                  aria-expanded={userOpen}
                 >
                   <span className="text-sm font-bold">⋯</span>
                 </button>
 
                 {userOpen && (
-                  <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-slate-200 bg-white shadow-lg">
+                  <div className="absolute right-0 mt-2 w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
                     <Link
                       href="/settings"
                       className="block px-4 py-2.5 text-sm hover:bg-slate-50"
@@ -205,12 +209,15 @@ export default function Nav() {
             </>
           ) : (
             <>
-              <Link href="/login" className="text-sm font-medium">
+              <Link
+                href="/login"
+                className="shrink-0 text-sm font-medium text-slate-700 hover:text-slate-900"
+              >
                 Login
               </Link>
               <Link
                 href="/register"
-                className="rounded-full bg-emerald-600 px-4 py-2 text-sm font-medium text-white"
+                className="shrink-0 rounded-full bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-emerald-700"
               >
                 Try it free
               </Link>
@@ -219,29 +226,33 @@ export default function Nav() {
         </div>
 
         {/* Mobile toggle */}
-        <div className="md:hidden">
+        <div className="md:hidden shrink-0">
           <button
             onClick={() => setMobileOpen((v) => !v)}
-            className="rounded-xl border border-slate-200 bg-white p-2"
+            className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white p-2 shadow-sm"
+            aria-label="Open menu"
+            aria-expanded={mobileOpen}
           >
-            {mobileOpen ? "✕" : "☰"}
+            <span className="text-lg leading-none">{mobileOpen ? "✕" : "☰"}</span>
           </button>
         </div>
       </div>
 
       {/* Mobile menu */}
       {mobileOpen && (
-        <div className="md:hidden border-t border-slate-200 bg-white">
+        <div className="md:hidden w-full max-w-full overflow-x-clip border-t border-slate-200 bg-white">
           <div className="px-4 py-3 space-y-1">
             {navLinks.map((l) => (
               <Link
                 key={l.href}
                 href={l.href}
-                className="flex justify-between rounded-xl px-3 py-2 text-sm hover:bg-slate-50"
+                className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm text-slate-800 hover:bg-slate-50"
               >
-                <span>{l.label}</span>
-                {l.badge ? (
-                  <span className="text-xs font-semibold">{l.badge}</span>
+                <span className="font-medium">{l.label}</span>
+                {typeof l.badge === "number" && l.badge > 0 ? (
+                  <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+                    {l.badge}
+                  </span>
                 ) : null}
               </Link>
             ))}
