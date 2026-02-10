@@ -13,9 +13,14 @@ type AffiliateMe = {
   status?: string; // "pending" | "approved" | ...
   ref_code?: string;
   commission_rate?: number;
+
+  // live counters
   clicks?: number;
   signups?: number;
   paid_conversions?: number;
+
+  // ✅ live earnings (must come from backend; no guessing)
+  est_monthly_earnings?: number;
 };
 
 function cn(...classes: Array<string | false | undefined | null>) {
@@ -92,6 +97,7 @@ export default function PartnerDashboardPage() {
   const [toast, setToast] = useState<string | null>(null);
 
   const refCode = me?.ref_code || "";
+
   const referralLink = useMemo(() => {
     if (!refCode) return "";
     return `https://document-explainer-blond.vercel.app/r/${refCode}`;
@@ -103,13 +109,21 @@ export default function PartnerDashboardPage() {
     : "border border-amber-200 bg-amber-50 text-amber-900";
   const badgeText = isApproved ? "Approved" : "Pending";
 
+  // ✅ Live counters only (no mock math)
   const clicks = me?.clicks ?? 0;
   const signups = me?.signups ?? 0;
   const paidConversions = me?.paid_conversions ?? 0;
 
-  const planPrice = 49; // keep simple for V1
-  const commissionRate = me?.commission_rate ?? 0.3;
-  const estMonthlyEarnings = paidConversions * planPrice * commissionRate;
+  // ✅ Derived from live counters (truth-based)
+  const activeSignups = paidConversions;
+  const pendingSignups = Math.max(0, signups - paidConversions);
+
+  // ✅ Commission rate from backend (truth-based)
+  const commissionRate = me?.commission_rate ?? 0;
+
+  // ✅ Earnings ONLY if backend provides it (no guessing)
+  const estMonthlyEarningsLive =
+    typeof me?.est_monthly_earnings === "number" ? me.est_monthly_earnings : null;
 
   const nameLabel =
     me?.display_name?.trim() ||
@@ -166,7 +180,6 @@ export default function PartnerDashboardPage() {
 
   return (
     <main className="relative">
-      {/* Clean, soft background (no clutter) */}
       <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-slate-50 via-white to-white" />
       {toast && <Toast message={toast} onClose={() => setToast(null)} />}
 
@@ -181,7 +194,7 @@ export default function PartnerDashboardPage() {
               Welcome, {nameLabel}
             </h1>
             <p className="mt-2 text-sm text-slate-600">
-              Everything you need to share your link and track results.
+              Share your link and track your results — all live.
             </p>
           </div>
 
@@ -202,7 +215,7 @@ export default function PartnerDashboardPage() {
           </div>
         </div>
 
-        {/* Sub-nav (pages, not clutter) */}
+        {/* Sub-nav */}
         <div className="mt-8 flex flex-wrap gap-2">
           <Link
             href="/partners/dashboard"
@@ -263,7 +276,7 @@ export default function PartnerDashboardPage() {
         {/* Content */}
         {!loading && !error && (
           <div className="mt-8 grid gap-4 lg:grid-cols-3">
-            {/* Left: Status + link */}
+            {/* Status + referral link */}
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -317,9 +330,7 @@ export default function PartnerDashboardPage() {
 
                 <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                   <button
-                    onClick={() =>
-                      copyText(referralLink, "Copied referral link.")
-                    }
+                    onClick={() => copyText(referralLink, "Copied referral link.")}
                     disabled={!referralLink}
                     className="inline-flex flex-1 items-center justify-center rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
                   >
@@ -335,18 +346,18 @@ export default function PartnerDashboardPage() {
                 </div>
 
                 <div className="mt-3 text-xs text-slate-500">
-                  Tip: pin your link in your bio + your Telegram group.
+                  Tip: pin your link in your bio + Telegram group.
                 </div>
               </div>
             </div>
 
-            {/* Right: Small “at a glance” */}
+            {/* At a glance (all live, no mock plan price) */}
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className="text-sm font-extrabold text-slate-900">
                 At a glance
               </div>
               <div className="mt-1 text-xs text-slate-500">
-                Simple totals for V1.
+                Live partner metrics.
               </div>
 
               <div className="mt-5 grid gap-3">
@@ -361,10 +372,19 @@ export default function PartnerDashboardPage() {
 
                 <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3">
                   <div className="text-xs font-semibold text-slate-600">
-                    Plan price
+                    Active signups
                   </div>
                   <div className="text-sm font-extrabold text-slate-900">
-                    ${planPrice}/mo
+                    {activeSignups}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                  <div className="text-xs font-semibold text-slate-600">
+                    Pending signups
+                  </div>
+                  <div className="text-sm font-extrabold text-slate-900">
+                    {pendingSignups}
                   </div>
                 </div>
 
@@ -373,9 +393,18 @@ export default function PartnerDashboardPage() {
                     Est. monthly earnings
                   </div>
                   <div className="text-sm font-extrabold text-slate-900">
-                    ${estMonthlyEarnings.toFixed(2)}
+                    {estMonthlyEarningsLive === null
+                      ? "—"
+                      : `$${estMonthlyEarningsLive.toFixed(2)}`}
                   </div>
                 </div>
+
+                {estMonthlyEarningsLive === null && (
+                  <div className="text-xs text-slate-500">
+                    Earnings will appear when the backend sends{" "}
+                    <span className="font-semibold">est_monthly_earnings</span>.
+                  </div>
+                )}
               </div>
             </div>
 
@@ -384,11 +413,19 @@ export default function PartnerDashboardPage() {
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <StatCard label="Clicks" value={`${clicks}`} />
                 <StatCard label="Signups" value={`${signups}`} />
-                <StatCard label="Paid conversions" value={`${paidConversions}`} />
+                <StatCard label="Active signups" value={`${activeSignups}`} />
                 <StatCard
                   label="Est. monthly earnings"
-                  value={`$${estMonthlyEarnings.toFixed(2)}`}
-                  hint={`Rate ${(commissionRate * 100).toFixed(0)}% · $${planPrice}/mo`}
+                  value={
+                    estMonthlyEarningsLive === null
+                      ? "—"
+                      : `$${estMonthlyEarningsLive.toFixed(2)}`
+                  }
+                  hint={
+                    commissionRate > 0
+                      ? `Rate ${(commissionRate * 100).toFixed(0)}%`
+                      : undefined
+                  }
                 />
               </div>
             </div>
