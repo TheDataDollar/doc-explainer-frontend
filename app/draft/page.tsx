@@ -19,7 +19,13 @@ type DraftSettings = {
   includeQuestions?: boolean;
 };
 
-type PlanTier = "free" | "starter" | "business";
+type MeResponse = {
+  user_id: number;
+  email: string;
+  free_docs_used: number;
+  is_paid: boolean;
+  plan_tier?: "free" | "pro" | "business";
+};
 
 function cn(...s: Array<string | false | null | undefined>) {
   return s.filter(Boolean).join(" ");
@@ -34,22 +40,16 @@ function safeFromParam(): string {
   }
 }
 
-function readPlanTier(): PlanTier {
-  try {
-    const raw = (localStorage.getItem("planTier") || "").toLowerCase();
-    if (raw === "business") return "business";
-    if (raw === "starter" || raw === "monthly" || raw === "yearly" || raw === "pro")
-      return "starter";
-    return "free";
-  } catch {
-    return "free";
-  }
-}
+const API =
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://127.0.0.1:8000";
 
 export default function DraftPage() {
   const router = useRouter();
 
   const [from, setFrom] = useState<string>("");
+
   const [settings, setSettings] = useState<DraftSettings>({});
   const [draftType, setDraftType] = useState("Lease Addendum");
   const [draftTypeOther, setDraftTypeOther] = useState("");
@@ -57,7 +57,9 @@ export default function DraftPage() {
   const [propertyAddress, setPropertyAddress] = useState("");
   const [specialInstructions, setSpecialInstructions] = useState("");
 
-  const [plan, setPlan] = useState<PlanTier>("free");
+  const [me, setMe] = useState<MeResponse | null>(null);
+  const [loadingMe, setLoadingMe] = useState(true);
+
   const [paywallOpen, setPaywallOpen] = useState(false);
 
   const isOther = draftType === "Other…";
@@ -66,8 +68,7 @@ export default function DraftPage() {
     return draftTypeOther.trim() ? draftTypeOther.trim() : "Other";
   }, [draftType, draftTypeOther, isOther]);
 
-  // ✅ ONLY Business can draft
-  const canDraft = plan === "business";
+  const isBusiness = me?.plan_tier === "business";
 
   useEffect(() => {
     const t = localStorage.getItem("token");
@@ -85,13 +86,28 @@ export default function DraftPage() {
       setSettings({});
     }
 
-    const p = readPlanTier();
-    setPlan(p);
+    let cancelled = false;
 
-    // ✅ If not business, immediately show upgrade modal when landing here
-    if (p !== "business") {
-      setPaywallOpen(true);
+    async function loadMe() {
+      try {
+        setLoadingMe(true);
+        const res = await fetch(`${API}/me`, {
+          headers: { Authorization: `Bearer ${t}` },
+        });
+        const data = await res.json().catch(() => null);
+        if (!cancelled) setMe(data);
+      } catch {
+        if (!cancelled) setMe(null);
+      } finally {
+        if (!cancelled) setLoadingMe(false);
+      }
     }
+
+    loadMe();
+
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   const draftOptions = [
@@ -112,15 +128,19 @@ export default function DraftPage() {
   const backHref =
     from === "dashboard" ? "/dashboard" : from === "upload" ? "/upload" : "/upload";
 
+  function openPaywall() {
+    setPaywallOpen(true);
+  }
+
   function handleGenerate() {
-    // ✅ Hard lock
-    if (!canDraft) {
-      setPaywallOpen(true);
+    // Hard lock: only business can draft
+    if (!isBusiness) {
+      openPaywall();
       return;
     }
 
     alert(
-      "Next step: wire AI generation here.\n\n(You are Business tier — drafting is enabled.)"
+      "Next step: wire AI generation here.\n\n(Access control is active — Business only.)"
     );
   }
 
@@ -139,7 +159,7 @@ export default function DraftPage() {
               Draft a real-estate document
             </h1>
             <p className="mt-1 text-sm text-slate-600">
-              Drafting is a <b>Business</b> feature.
+              Drafting is a <span className="font-semibold">Business-only</span> feature.
             </p>
           </div>
 
@@ -168,11 +188,14 @@ export default function DraftPage() {
                 Drafting availability
               </div>
               <p className="mt-1 text-sm text-slate-600">
-                {plan === "business" ? (
-                  <>Business plan: drafting is enabled.</>
+                {loadingMe ? (
+                  <>Checking your plan…</>
+                ) : isBusiness ? (
+                  <>Business plan: unlimited drafting.</>
                 ) : (
                   <>
-                    Your current plan does not include drafting. You can still upload and analyze documents.
+                    Drafting is reserved for the <span className="font-semibold">Business</span> plan.
+                    You can still upload and analyze documents on other plans.
                   </>
                 )}
               </p>
@@ -182,14 +205,12 @@ export default function DraftPage() {
               <span
                 className={cn(
                   "rounded-full px-3 py-1 text-xs font-semibold",
-                  plan === "business"
+                  isBusiness
                     ? "bg-slate-900 text-white"
-                    : plan === "starter"
-                    ? "bg-emerald-100 text-emerald-800"
                     : "bg-slate-100 text-slate-800"
                 )}
               >
-                {plan === "business" ? "Business" : plan === "starter" ? "Pro" : "Free"}
+                {isBusiness ? "Business" : "Locked"}
               </span>
 
               <Link
@@ -216,7 +237,7 @@ export default function DraftPage() {
                   </p>
                 </div>
 
-                {!canDraft ? (
+                {!loadingMe && !isBusiness ? (
                   <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800 border border-amber-200">
                     Business only
                   </span>
@@ -232,7 +253,6 @@ export default function DraftPage() {
                     className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-4 focus:ring-emerald-100"
                     value={draftType}
                     onChange={(e) => setDraftType(e.target.value)}
-                    disabled={!canDraft}
                   >
                     {draftOptions.map((o) => (
                       <option key={o} value={o}>
@@ -247,7 +267,6 @@ export default function DraftPage() {
                       value={draftTypeOther}
                       onChange={(e) => setDraftTypeOther(e.target.value)}
                       placeholder="Type the draft you need (ex: Pet addendum, Lease renewal, etc.)"
-                      disabled={!canDraft}
                     />
                   )}
                 </div>
@@ -261,7 +280,6 @@ export default function DraftPage() {
                     value={partyNames}
                     onChange={(e) => setPartyNames(e.target.value)}
                     placeholder="Ex: John Smith (Landlord), Jane Doe (Tenant)"
-                    disabled={!canDraft}
                   />
                 </div>
 
@@ -274,7 +292,6 @@ export default function DraftPage() {
                     value={propertyAddress}
                     onChange={(e) => setPropertyAddress(e.target.value)}
                     placeholder="123 Main St, City, State"
-                    disabled={!canDraft}
                   />
                 </div>
 
@@ -287,21 +304,23 @@ export default function DraftPage() {
                     value={specialInstructions}
                     onChange={(e) => setSpecialInstructions(e.target.value)}
                     placeholder="Ex: Add late fee clause, add renewal window, include notice period, etc."
-                    disabled={!canDraft}
                   />
                 </div>
               </div>
 
               <button
                 onClick={handleGenerate}
+                disabled={!loadingMe && !isBusiness}
                 className={cn(
                   "mt-6 w-full rounded-2xl py-3 text-sm font-semibold shadow-sm",
-                  canDraft
-                    ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                    : "bg-slate-200 text-slate-700 hover:bg-slate-200"
+                  !loadingMe && !isBusiness
+                    ? "bg-slate-200 text-slate-700 cursor-not-allowed"
+                    : "bg-emerald-600 text-white hover:bg-emerald-700"
                 )}
               >
-                {canDraft ? "Generate draft (coming next)" : "Drafting requires Business"}
+                {!loadingMe && !isBusiness
+                  ? "Drafting requires Business"
+                  : "Generate draft (coming next)"}
               </button>
 
               <p className="mt-3 text-xs text-slate-500">
@@ -387,44 +406,25 @@ export default function DraftPage() {
         </div>
       </section>
 
-      {paywallOpen && (
-        <PaywallModal
-          plan={plan}
-          onClose={() => setPaywallOpen(false)}
-        />
-      )}
+      {paywallOpen && <PaywallModal onClose={() => setPaywallOpen(false)} />}
     </main>
   );
 }
 
-function PaywallModal({
-  plan,
-  onClose,
-}: {
-  plan: PlanTier;
-  onClose: () => void;
-}) {
-  const isBusiness = plan === "business";
-
+function PaywallModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 shadow-xl">
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white">
-              Business feature
+              Business plan
             </div>
             <h3 className="mt-3 text-xl font-semibold text-slate-900">
-              Draft Document is Business-only
+              Contract drafting is a Business feature
             </h3>
             <p className="mt-1 text-sm text-slate-600">
-              {isBusiness ? (
-                <>You’re on Business — drafting is enabled.</>
-              ) : (
-                <>
-                  You can upload and analyze on your current plan, but contract drafting is reserved for the <b>Business</b> plan.
-                </>
-              )}
+              Upgrade to Business to unlock unlimited contract drafting and professional workflows.
             </p>
           </div>
 
@@ -457,10 +457,10 @@ function PaywallModal({
           </Link>
 
           <button
-            onClick={() => window.location.href = "/dashboard"}
+            onClick={onClose}
             className="inline-flex w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50 sm:w-auto"
           >
-            Back to dashboard
+            Keep analyzing documents
           </button>
         </div>
 
