@@ -22,17 +22,19 @@ export default function PricingPage() {
     process.env.NEXT_PUBLIC_API_URL ||
     "https://doc-explainer-api.onrender.com";
 
-  // ✅ Stripe TEST Price IDs (must match backend ALLOWED_PRICE_IDS)
   const PRICE_IDS = {
-    pro: {
-      monthly: "price_1Sz0cSLBOsv1gBi7yQoqTO0n",
-      yearly: "price_1Sz0cTLBOsv1gBi7DKZyGbLy",
-    },
-    business: {
-      monthly: "price_1Sz0dZLBOsv1gBi7fqenphoj",
-      yearly: "price_1Sz0dZLBOsv1gBi72C7VtbH8",
-    },
-  } as const;
+  pro: {
+    // $47 plan (Stripe “Starter” price IDs)
+    monthly: "price_1SyzVELBOsv1gBi7Bk9TagpX",
+    yearly: "price_1SyzYoLBOsv1gBi7yvxY1GAv",
+  },
+  business: {
+    // $209 plan (Stripe “Pro” price IDs)
+    monthly: "price_1SyzXKLBOsv1gBi7GOKQaIER",
+    yearly: "price_1SyzXKLBOsv1gBi7RhlNjAZ0",
+  },
+} as const;
+
 
   async function startCheckout(planKey: "pro" | "business") {
     const token = localStorage.getItem("token");
