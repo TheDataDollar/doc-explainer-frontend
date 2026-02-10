@@ -1,4 +1,3 @@
-// app/dashboard/page.tsx
 "use client";
 
 import Nav from "@/components/Nav";
@@ -157,7 +156,6 @@ export default function DashboardPage() {
     const inReview = docs.filter((d) => d.status === "in_review").length;
     const uploaded = docs.filter((d) => d.status === "uploaded").length;
 
-    // keep your logic, but present it better
     const estimatedRisksFlagged = Math.max(0, Math.round(completed * 0.3));
     const estimatedTimeSavedHours = Math.max(0, (completed * 18) / 60);
 
@@ -224,21 +222,24 @@ export default function DashboardPage() {
       : "bg-white text-slate-700 border-slate-200";
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-50 via-white to-white">
+    <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-50 via-white to-white">
       <Nav />
 
-      <section className="mx-auto max-w-7xl px-6 py-10">
-        {/* Hero / Top bar */}
-        <div className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-white/70 p-6 shadow-sm backdrop-blur md:p-8">
+      {/* Mobile-first padding + width */}
+      <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-10">
+        {/* Hero */}
+        <div className="relative overflow-hidden rounded-[24px] border border-slate-200 bg-white/70 p-4 shadow-sm backdrop-blur sm:p-6 md:p-8">
           <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-emerald-200/30 blur-3xl" />
           <div className="pointer-events-none absolute -left-24 -bottom-24 h-64 w-64 rounded-full bg-slate-200/40 blur-3xl" />
 
-          <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="relative grid gap-5 lg:grid-cols-[1fr_420px] lg:items-start">
+            {/* Left */}
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
+                <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
                   Dashboard
                 </h1>
+
                 <span
                   className={cn(
                     "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold shadow-sm",
@@ -265,9 +266,10 @@ export default function DashboardPage() {
                 paperwork — with clear risks, key terms, and next steps.
               </p>
 
-              <div className="mt-4 flex flex-wrap items-center gap-3">
+              {/* Mobile-first actions: stack nicely */}
+              <div className="mt-4 grid gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
                 <button
-                  className="rounded-2xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
+                  className="rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
                   onClick={() => router.push("/upload")}
                 >
                   New upload
@@ -275,7 +277,7 @@ export default function DashboardPage() {
 
                 <button
                   className={cn(
-                    "rounded-2xl border bg-white px-5 py-2.5 text-sm font-semibold shadow-sm hover:bg-slate-50",
+                    "rounded-2xl border bg-white px-5 py-3 text-sm font-semibold shadow-sm hover:bg-slate-50",
                     inboxNew > 0 ? "border-emerald-200" : "border-slate-200"
                   )}
                   onClick={() => router.push("/dashboard/responses")}
@@ -291,7 +293,7 @@ export default function DashboardPage() {
                 </button>
 
                 <button
-                  className="rounded-2xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+                  className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
                   onClick={() => router.push("/draft?from=dashboard")}
                 >
                   Draft a document
@@ -299,15 +301,14 @@ export default function DashboardPage() {
 
                 {me?.is_paid ? (
                   <button
-                    className="rounded-2xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+                    className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
                     onClick={openBillingPortal}
-                    title="Open Stripe billing portal"
                   >
                     Manage billing
                   </button>
                 ) : (
                   <button
-                    className="rounded-2xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+                    className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
                     onClick={() => router.push("/pricing")}
                   >
                     Upgrade
@@ -315,23 +316,22 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              {/* tiny “trust” row */}
-              <div className="mt-5 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+              <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-500">
                 <BadgeSoft>Not legal advice</BadgeSoft>
                 <BadgeSoft>Secure billing via Stripe</BadgeSoft>
                 <BadgeSoft>Designed for real estate workflows</BadgeSoft>
               </div>
             </div>
 
-            {/* Quick insight card */}
-            <div className="w-full max-w-xl rounded-3xl border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur lg:w-[420px]">
+            {/* Right card — full width on mobile */}
+            <div className="w-full rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-sm backdrop-blur sm:p-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="text-sm font-semibold text-slate-900">
                     This week at a glance
                   </div>
                   <div className="mt-1 text-xs text-slate-600">
-                    Fast signal on what’s moving in your pipeline.
+                    Quick signal on what’s moving.
                   </div>
                 </div>
                 <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700">
@@ -339,17 +339,9 @@ export default function DashboardPage() {
                 </span>
               </div>
 
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <MiniKpi
-                  label="In review"
-                  value={String(stats.inReview)}
-                  tone="amber"
-                />
-                <MiniKpi
-                  label="Completed"
-                  value={String(stats.completed)}
-                  tone="emerald"
-                />
+              <div className="mt-4 grid gap-3 grid-cols-3">
+                <MiniKpi label="In review" value={String(stats.inReview)} tone="amber" />
+                <MiniKpi label="Completed" value={String(stats.completed)} tone="emerald" />
                 <MiniKpi
                   label="Updates"
                   value={String(inboxNew)}
@@ -370,14 +362,16 @@ export default function DashboardPage() {
                 </div>
                 <div className="mt-2 text-xs text-slate-600">
                   {stats.inReview > 0
-                    ? "Keep your pipeline moving — in-review docs become reports once analysis completes."
+                    ? "Keep your pipeline moving — in-review docs become reports when analysis completes."
                     : stats.completed > 0
                     ? "See key terms, risks, and suggested questions in one place."
                     : "Get a summary + key terms + risk flags in minutes."}
                 </div>
                 <button
                   className="mt-3 w-full rounded-xl bg-slate-900 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
-                  onClick={() => router.push(stats.inReview > 0 ? "/dashboard/history" : "/upload")}
+                  onClick={() =>
+                    router.push(stats.inReview > 0 ? "/dashboard/history" : "/upload")
+                  }
                 >
                   {stats.inReview > 0 ? "View pipeline" : "Start upload"}
                 </button>
@@ -387,21 +381,21 @@ export default function DashboardPage() {
         </div>
 
         {loading && (
-          <div className="mt-8 rounded-3xl border border-slate-200 bg-white/80 p-6 text-sm text-slate-600 shadow-sm backdrop-blur">
+          <div className="mt-6 rounded-3xl border border-slate-200 bg-white/80 p-6 text-sm text-slate-600 shadow-sm backdrop-blur">
             Loading your dashboard…
           </div>
         )}
 
         {error && (
-          <div className="mt-8 rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-800">
+          <div className="mt-6 rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-800">
             {error}
           </div>
         )}
 
         {!loading && !error && (
           <>
-            {/* Premium KPI grid */}
-            <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {/* KPI grid mobile-first */}
+            <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <KpiCard
                 title="Documents (30 days)"
                 value={String(stats.last30Count)}
@@ -418,7 +412,7 @@ export default function DashboardPage() {
                 title="Estimated risks"
                 value={String(stats.estimatedRisksFlagged)}
                 sub="Items worth checking"
-                hint="A placeholder estimate until structured risk scoring is finalized."
+                hint="Placeholder estimate until structured scoring is finalized."
               />
               <KpiCard
                 title="Time saved (est.)"
@@ -428,11 +422,9 @@ export default function DashboardPage() {
               />
             </div>
 
-            <div className="mt-10 grid gap-8 lg:grid-cols-3">
-              {/* Left column */}
-              <div className="lg:col-span-2 space-y-8">
-                {/* Recent documents */}
-                <div className="rounded-[28px] border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
+            <div className="mt-8 grid gap-6 lg:grid-cols-3">
+              <div className="lg:col-span-2 space-y-6">
+                <div className="rounded-[24px] border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur sm:p-6">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <h2 className="text-lg font-semibold text-slate-900">
@@ -444,29 +436,22 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
-                      <div className="flex flex-wrap gap-2">
-                        <FilterChip
-                          label="All"
-                          active={docFilter === "all"}
-                          onClick={() => setDocFilter("all")}
-                        />
-                        <FilterChip
-                          label="Uploaded"
-                          active={docFilter === "uploaded"}
-                          onClick={() => setDocFilter("uploaded")}
-                        />
-                        <FilterChip
-                          label="In review"
-                          active={docFilter === "in_review"}
-                          onClick={() => setDocFilter("in_review")}
-                        />
-                        <FilterChip
-                          label="Completed"
-                          active={docFilter === "completed"}
-                          onClick={() => setDocFilter("completed")}
-                        />
-                      </div>
-
+                      <FilterChip label="All" active={docFilter === "all"} onClick={() => setDocFilter("all")} />
+                      <FilterChip
+                        label="Uploaded"
+                        active={docFilter === "uploaded"}
+                        onClick={() => setDocFilter("uploaded")}
+                      />
+                      <FilterChip
+                        label="In review"
+                        active={docFilter === "in_review"}
+                        onClick={() => setDocFilter("in_review")}
+                      />
+                      <FilterChip
+                        label="Completed"
+                        active={docFilter === "completed"}
+                        onClick={() => setDocFilter("completed")}
+                      />
                       <button
                         className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
                         onClick={() => router.push("/dashboard/history")}
@@ -476,16 +461,11 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
-                  <div className="mt-5 divide-y divide-slate-200/70">
+                  <div className="mt-4 divide-y divide-slate-200/70">
                     {recentDocs.length === 0 ? (
-                      <EmptyState
-                        title="No documents yet"
-                        body="Upload a lease, HOA doc, or closing document to generate a premium report."
-                        primaryLabel="Upload a document"
-                        onPrimary={() => router.push("/upload")}
-                        secondaryLabel="Learn how it works"
-                        onSecondary={() => router.push("/support")}
-                      />
+                      <div className="py-10 text-center text-sm text-slate-600">
+                        No documents yet. Click <b>New upload</b> to add one.
+                      </div>
                     ) : (
                       recentDocs.map((d) => (
                         <DocumentRow
@@ -493,73 +473,27 @@ export default function DashboardPage() {
                           name={d.original_filename}
                           status={d.status}
                           date={prettyDate(d.created_at)}
-                          onOpen={() =>
-                            router.push(`/dashboard/history/${d.document_id}`)
-                          }
+                          onOpen={() => router.push(`/dashboard/history/${d.document_id}`)}
                         />
                       ))
                     )}
                   </div>
                 </div>
-
-                {/* Responses spotlight */}
-                <div className="rounded-[28px] border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0">
-                      <h2 className="text-lg font-semibold text-slate-900">
-                        Responses inbox
-                      </h2>
-                      <p className="mt-1 text-sm text-slate-600">
-                        Updates, detected changes, and notes — organized across
-                        every document.
-                      </p>
-                    </div>
-
-                    <button
-                      className="rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
-                      onClick={() => router.push("/dashboard/responses")}
-                    >
-                      Open inbox
-                    </button>
-                  </div>
-
-                  <div className="mt-5 grid gap-4 sm:grid-cols-3">
-                    <MiniStat label="New updates" value={String(inboxNew)} highlight />
-                    <MiniStat label="Total items" value={String(inboxTotal)} />
-                    <MiniStat
-                      label="Focus"
-                      value={inboxNew > 0 ? "Review new" : "All clear"}
-                    />
-                  </div>
-
-                  <div className="mt-5 grid gap-4 md:grid-cols-2">
-                    <InfoCard
-                      title="What triggers an update?"
-                      body="When a report detects changes or you add notes, the inbox captures it so nothing is missed."
-                    />
-                    <InfoCard
-                      title="Pro workflow"
-                      body="Review updates → open the report → export a summary for your client or team."
-                    />
-                  </div>
-                </div>
               </div>
 
-              {/* Right column */}
-              <div className="space-y-8">
-                {/* Smart Tools */}
-                <div className="rounded-[28px] border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
+              <div className="space-y-6">
+                <div className="rounded-[24px] border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur sm:p-6">
                   <h3 className="text-base font-semibold text-slate-900">
                     Workspace tools
                   </h3>
                   <p className="mt-1 text-sm text-slate-600">
-                    Everything you need to run a clean real estate workflow.
+                    Quick actions for your workflow.
                   </p>
 
-                  <div className="mt-5 grid gap-3">
+                  <div className="mt-4 grid gap-3">
                     <ActionCard
                       title="Analyze a new document"
-                      body="Upload a lease, HOA, or closing doc to get a report."
+                      body="Upload a lease, HOA, or closing doc to generate a report."
                       cta="Start upload"
                       onClick={() => router.push("/upload")}
                       accent="emerald"
@@ -572,30 +506,16 @@ export default function DashboardPage() {
                       accent="slate"
                     />
                     <ActionCard
-                      title="Open Output Builder"
+                      title="Output Builder"
                       body={
                         hasSavedOutputBuilder
-                          ? "Your last preferences are saved. Keep consistency across reports."
-                          : "Set your preferences to get stronger, more structured outputs."
+                          ? "Configured — your preferences will apply to future uploads."
+                          : "Not configured — set preferences for stronger outputs."
                       }
-                      cta="Configure outputs"
+                      cta="Configure"
                       onClick={() => router.push("/upload")}
                       accent="white"
                     />
-                  </div>
-
-                  <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <div className="text-xs font-semibold text-slate-700">
-                      Output Builder status
-                    </div>
-                    <div className="mt-1 text-sm font-semibold text-slate-900">
-                      {hasSavedOutputBuilder ? "Configured" : "Not configured"}
-                    </div>
-                    <div className="mt-1 text-xs text-slate-600">
-                      {hasSavedOutputBuilder
-                        ? "Your settings will be applied to future uploads."
-                        : "Set preferences once and reuse them for every report."}
-                    </div>
                   </div>
 
                   <p className="mt-4 text-xs text-slate-500">
@@ -603,84 +523,17 @@ export default function DashboardPage() {
                   </p>
                 </div>
 
-                {/* Account */}
-                <div className="rounded-[28px] border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h2 className="text-lg font-semibold text-slate-900">
-                        Account
-                      </h2>
-                      <p className="mt-1 text-sm text-slate-600">
-                        Plan status and billing controls.
-                      </p>
-                    </div>
-                    <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700">
-                      {tierLabel}
-                    </span>
-                  </div>
-
-                  <div className="mt-5 space-y-3 text-sm text-slate-700">
-                    <KV label="Email" value={me?.email ?? "-"} />
-                    <KV label="Total documents" value={String(docs.length)} />
-                    {!me?.is_paid ? (
-                      <KV
-                        label="Free usage"
-                        value={`${me?.free_docs_used ?? 0}/3`}
-                      />
-                    ) : (
-                      <KV label="Usage" value="Unlimited" />
-                    )}
-                  </div>
-
-                  <div className="mt-5 grid gap-2">
-                    {!me?.is_paid ? (
-                      <button
-                        className="w-full rounded-2xl bg-emerald-600 py-3 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
-                        onClick={() => router.push("/pricing")}
-                      >
-                        Upgrade to Business
-                      </button>
-                    ) : (
-                      <button
-                        className="w-full rounded-2xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
-                        onClick={openBillingPortal}
-                      >
-                        Manage billing
-                      </button>
-                    )}
-
-                    <button
-                      className="w-full rounded-2xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
-                      onClick={() => router.push("/settings")}
-                    >
-                      Open settings
-                    </button>
-                  </div>
-                </div>
-
-                {/* Support */}
-                <div className="rounded-[28px] border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
-                  <h3 className="text-sm font-semibold text-slate-900">
-                    Need help?
-                  </h3>
+                <div className="rounded-[24px] border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur sm:p-6">
+                  <h3 className="text-sm font-semibold text-slate-900">Need help?</h3>
                   <p className="mt-1 text-sm text-slate-600">
-                    Support built for real estate documents and workflows.
+                    Support built for real estate documents.
                   </p>
-
-                  <div className="mt-4 grid gap-2">
-                    <button
-                      className="w-full rounded-2xl bg-slate-900 py-3 text-sm font-semibold text-white hover:bg-slate-800"
-                      onClick={() => router.push("/support")}
-                    >
-                      Contact support
-                    </button>
-                    <button
-                      className="w-full rounded-2xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
-                      onClick={() => router.push("/support")}
-                    >
-                      View FAQs
-                    </button>
-                  </div>
+                  <button
+                    className="mt-4 w-full rounded-2xl bg-slate-900 py-3 text-sm font-semibold text-white hover:bg-slate-800"
+                    onClick={() => router.push("/support")}
+                  >
+                    Contact support
+                  </button>
                 </div>
               </div>
             </div>
@@ -691,7 +544,7 @@ export default function DashboardPage() {
   );
 }
 
-/* ---------- Helpers & UI ---------- */
+/* ---------- UI ---------- */
 
 function prettyDate(iso: string) {
   const d = new Date(iso);
@@ -787,56 +640,6 @@ function FilterChip({
   );
 }
 
-function EmptyState({
-  title,
-  body,
-  primaryLabel,
-  onPrimary,
-  secondaryLabel,
-  onSecondary,
-}: {
-  title: string;
-  body: string;
-  primaryLabel: string;
-  onPrimary: () => void;
-  secondaryLabel?: string;
-  onSecondary?: () => void;
-}) {
-  return (
-    <div className="py-10 text-center">
-      <div className="mx-auto max-w-md">
-        <div className="text-base font-semibold text-slate-900">{title}</div>
-        <div className="mt-2 text-sm text-slate-600">{body}</div>
-        <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
-          <button
-            className="rounded-2xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
-            onClick={onPrimary}
-          >
-            {primaryLabel}
-          </button>
-          {secondaryLabel && onSecondary ? (
-            <button
-              className="rounded-2xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
-              onClick={onSecondary}
-            >
-              {secondaryLabel}
-            </button>
-          ) : null}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function InfoCard({ title, body }: { title: string; body: string }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-      <div className="text-sm font-semibold text-slate-900">{title}</div>
-      <div className="mt-1 text-sm text-slate-600">{body}</div>
-    </div>
-  );
-}
-
 function ActionCard({
   title,
   body,
@@ -875,37 +678,6 @@ function ActionCard({
       >
         {cta}
       </button>
-    </div>
-  );
-}
-
-function KV({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-4">
-      <span className="text-slate-600">{label}</span>
-      <span className="font-medium text-slate-900">{value}</span>
-    </div>
-  );
-}
-
-function MiniStat({
-  label,
-  value,
-  highlight,
-}: {
-  label: string;
-  value: string;
-  highlight?: boolean;
-}) {
-  return (
-    <div
-      className={cn(
-        "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm",
-        highlight && "border-emerald-200 bg-emerald-50/40"
-      )}
-    >
-      <div className="text-xs font-semibold text-slate-600">{label}</div>
-      <div className="mt-2 text-xl font-semibold text-slate-900">{value}</div>
     </div>
   );
 }
@@ -955,14 +727,12 @@ function DocumentRow({
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        <button
-          onClick={onOpen}
-          className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
-        >
-          Open report
-        </button>
-      </div>
+      <button
+        onClick={onOpen}
+        className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+      >
+        Open report
+      </button>
     </div>
   );
 }
