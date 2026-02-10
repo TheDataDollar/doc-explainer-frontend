@@ -3,15 +3,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
+function normalizeBase(url: string) {
+  return url.replace(/\/+$/, "");
+}
+
 export default function LoginPage() {
   const router = useRouter();
 
   const API_BASE = useMemo(() => {
-    return (
+    const raw =
       process.env.NEXT_PUBLIC_API_BASE_URL ||
       process.env.NEXT_PUBLIC_API_URL ||
-      "https://doc-explainer-api.onrender.com"
-    );
+      "https://doc-explainer-api.onrender.com";
+    return normalizeBase(raw);
   }, []);
 
   const [email, setEmail] = useState("");
@@ -47,18 +51,12 @@ export default function LoginPage() {
     }
   }
 
-  async function login() {
+  async function doLogin() {
     setLoading(true);
     setMsg("");
 
     const cleanEmail = email.trim().toLowerCase();
-    const cleanPassword = password; // don't trim passwords (spaces can be valid)
-
-    if (!cleanEmail || !cleanPassword) {
-      setMsg("❌ Please enter your email and password.");
-      setLoading(false);
-      return;
-    }
+    const cleanPassword = password;
 
     try {
       const res = await fetch(`${API_BASE}/auth/login`, {
@@ -86,14 +84,7 @@ export default function LoginPage() {
       persistToken(token);
       router.push("/dashboard");
     } catch (e: any) {
-      const detail = e?.message || "Unknown error";
-
-      // Helpful message for the most common mobile issue
-      setMsg(
-        `❌ Network error: ${detail}\n\n` +
-          `If you're on mobile, this is usually an API URL/env or CORS issue.\n` +
-          `API_BASE currently: ${API_BASE}`
-      );
+      setMsg(`❌ Network error: ${e?.message || "Unknown error"}`);
     } finally {
       setLoading(false);
     }
@@ -102,7 +93,7 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-white via-emerald-50/40 to-white">
       <section className="mx-auto grid max-w-5xl grid-cols-1 gap-10 px-6 py-14 md:grid-cols-2 md:items-center">
-        {/* LEFT: Marketing */}
+        {/* LEFT */}
         <div className="order-2 md:order-1">
           <a
             href="/"
@@ -116,8 +107,7 @@ export default function LoginPage() {
           </h1>
 
           <p className="mt-4 max-w-lg text-base text-slate-600">
-            Log in to view your documents, reviews, and next steps before you
-            sign.
+            Log in to view your documents, reviews, and next steps before you sign.
           </p>
 
           <div className="mt-6 rounded-2xl border border-slate-200 bg-white/70 p-4 text-sm text-slate-700">
@@ -125,13 +115,13 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* RIGHT: Login card */}
+        {/* RIGHT */}
         <div className="order-1 md:order-2">
           <div className="rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                if (!loading) login();
+                if (!loading) doLogin();
               }}
             >
               <label className="block text-sm font-semibold text-slate-800">
@@ -144,8 +134,8 @@ export default function LoginPage() {
                 placeholder="you@email.com"
                 autoCapitalize="none"
                 autoCorrect="off"
-                inputMode="email"
                 autoComplete="email"
+                inputMode="email"
               />
 
               <label className="mt-4 block text-sm font-semibold text-slate-800">
@@ -176,24 +166,28 @@ export default function LoginPage() {
               >
                 {loading ? "Logging in..." : "Login"}
               </button>
-
-              {msg && (
-                <div className="mt-4 whitespace-pre-line rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-                  {msg}
-                </div>
-              )}
-
-              <div className="mt-6 text-center text-sm text-slate-600">
-                Don’t have an account?{" "}
-                <a
-                  href="/register"
-                  className="font-semibold text-emerald-700 hover:underline"
-                >
-                  Create one
-                </a>
-              </div>
             </form>
+
+            {msg && (
+              <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+                {msg}
+              </div>
+            )}
+
+            <div className="mt-6 text-center text-sm text-slate-600">
+              Don’t have an account?{" "}
+              <a
+                href="/register"
+                className="font-semibold text-emerald-700 hover:underline"
+              >
+                Create one
+              </a>
+            </div>
           </div>
+
+          <p className="mt-3 text-center text-xs text-slate-500">
+            API: <span className="font-mono">{API_BASE}</span>
+          </p>
         </div>
       </section>
     </main>
