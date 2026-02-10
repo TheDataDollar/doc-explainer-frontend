@@ -16,6 +16,7 @@ export const metadata: Metadata = {
   title: "Document Explainer",
   description: "Explain any document in seconds",
 };
+
 export const viewport = {
   width: "device-width",
   initialScale: 1,
@@ -29,7 +30,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased text-slate-900`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased text-slate-900 overflow-x-hidden`}
       >
         {children}
       </body>
