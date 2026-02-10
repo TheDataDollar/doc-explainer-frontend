@@ -221,18 +221,21 @@ export default function DashboardPage() {
       : "bg-white text-slate-700 border-slate-200";
 
   return (
-    <main className="min-h-screen w-full overflow-x-hidden bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-50 via-white to-white">
+    <main className="min-h-screen w-full max-w-full overflow-x-hidden bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-50 via-white to-white">
       <Nav />
 
       <section className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-10">
         {/* HERO */}
         <div className="relative w-full max-w-full overflow-hidden rounded-[24px] border border-slate-200 bg-white/70 p-4 shadow-sm backdrop-blur sm:p-6 md:p-8">
+          {/* blobs: keep inside clipping parent */}
           <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-emerald-200/30 blur-3xl" />
           <div className="pointer-events-none absolute -left-24 -bottom-24 h-64 w-64 rounded-full bg-slate-200/40 blur-3xl" />
 
-          <div className="relative grid w-full max-w-full gap-5 lg:grid-cols-[1fr_420px] lg:items-start">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
+          {/* IMPORTANT: clamp grid container */}
+          <div className="relative grid w-full max-w-full min-w-0 gap-5 lg:grid-cols-3 lg:items-start">
+            {/* Left content */}
+            <div className="min-w-0 lg:col-span-2">
+              <div className="flex flex-wrap items-center gap-2 min-w-0">
                 <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
                   Dashboard
                 </h1>
@@ -263,7 +266,7 @@ export default function DashboardPage() {
                 paperwork — with clear risks, key terms, and next steps.
               </p>
 
-              <div className="mt-4 grid w-full max-w-full gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
+              <div className="mt-4 grid w-full max-w-full min-w-0 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
                 <button
                   className="w-full sm:w-auto rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
                   onClick={() => router.push("/upload")}
@@ -319,8 +322,9 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="w-full max-w-full overflow-hidden rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-sm backdrop-blur sm:p-5">
-              <div className="flex items-start justify-between gap-3">
+            {/* Right card */}
+            <div className="w-full max-w-full min-w-0 overflow-hidden rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-sm backdrop-blur sm:p-5 lg:col-span-1">
+              <div className="flex items-start justify-between gap-3 min-w-0">
                 <div className="min-w-0">
                   <div className="text-sm font-semibold text-slate-900">
                     This week at a glance
@@ -335,8 +339,16 @@ export default function DashboardPage() {
               </div>
 
               <div className="mt-4 grid grid-cols-3 gap-3">
-                <MiniKpi label="In review" value={String(stats.inReview)} tone="amber" />
-                <MiniKpi label="Completed" value={String(stats.completed)} tone="emerald" />
+                <MiniKpi
+                  label="In review"
+                  value={String(stats.inReview)}
+                  tone="amber"
+                />
+                <MiniKpi
+                  label="Completed"
+                  value={String(stats.completed)}
+                  tone="emerald"
+                />
                 <MiniKpi
                   label="Updates"
                   value={String(inboxNew)}
@@ -365,7 +377,9 @@ export default function DashboardPage() {
                 <button
                   className="mt-3 w-full rounded-xl bg-slate-900 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
                   onClick={() =>
-                    router.push(stats.inReview > 0 ? "/dashboard/history" : "/upload")
+                    router.push(
+                      stats.inReview > 0 ? "/dashboard/history" : "/upload"
+                    )
                   }
                 >
                   {stats.inReview > 0 ? "View pipeline" : "Start upload"}
@@ -418,9 +432,9 @@ export default function DashboardPage() {
 
             <div className="mt-8 grid w-full max-w-full gap-6 lg:grid-cols-3">
               {/* LEFT: Recent docs */}
-              <div className="lg:col-span-2 space-y-6">
-                <div className="w-full max-w-full overflow-hidden rounded-[24px] border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur sm:p-6">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="lg:col-span-2 space-y-6 min-w-0">
+                <div className="w-full max-w-full min-w-0 overflow-hidden rounded-[24px] border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur sm:p-6">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between min-w-0">
                     <div className="min-w-0">
                       <h2 className="text-lg font-semibold text-slate-900">
                         Recent documents
@@ -430,13 +444,32 @@ export default function DashboardPage() {
                       </p>
                     </div>
 
-                    {/* Scroll-contained chip row (no negative margins) */}
-                    <div className="w-full sm:w-auto max-w-full">
-                      <div className="flex max-w-full items-center gap-2 overflow-x-auto pb-1">
-                        <FilterChip label="All" active={docFilter === "all"} onClick={() => setDocFilter("all")} />
-                        <FilterChip label="Uploaded" active={docFilter === "uploaded"} onClick={() => setDocFilter("uploaded")} />
-                        <FilterChip label="In review" active={docFilter === "in_review"} onClick={() => setDocFilter("in_review")} />
-                        <FilterChip label="Completed" active={docFilter === "completed"} onClick={() => setDocFilter("completed")} />
+                    {/* FIX: isolate scroll row so it never affects page width */}
+                    <div className="w-full sm:w-auto max-w-full min-w-0 overflow-hidden">
+                      <div
+                        className="flex max-w-full min-w-0 items-center gap-2 overflow-x-auto overscroll-x-contain pb-1"
+                        style={{ WebkitOverflowScrolling: "touch" }}
+                      >
+                        <FilterChip
+                          label="All"
+                          active={docFilter === "all"}
+                          onClick={() => setDocFilter("all")}
+                        />
+                        <FilterChip
+                          label="Uploaded"
+                          active={docFilter === "uploaded"}
+                          onClick={() => setDocFilter("uploaded")}
+                        />
+                        <FilterChip
+                          label="In review"
+                          active={docFilter === "in_review"}
+                          onClick={() => setDocFilter("in_review")}
+                        />
+                        <FilterChip
+                          label="Completed"
+                          active={docFilter === "completed"}
+                          onClick={() => setDocFilter("completed")}
+                        />
                         <button
                           className="shrink-0 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
                           onClick={() => router.push("/dashboard/history")}
@@ -470,8 +503,8 @@ export default function DashboardPage() {
               </div>
 
               {/* RIGHT: Workspace tools + Need help */}
-              <div className="space-y-6">
-                <div className="w-full max-w-full overflow-hidden rounded-[24px] border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur sm:p-6">
+              <div className="space-y-6 min-w-0">
+                <div className="w-full max-w-full min-w-0 overflow-hidden rounded-[24px] border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur sm:p-6">
                   <h3 className="text-base font-semibold text-slate-900">
                     Workspace tools
                   </h3>
@@ -512,8 +545,10 @@ export default function DashboardPage() {
                   </p>
                 </div>
 
-                <div className="w-full max-w-full overflow-hidden rounded-[24px] border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur sm:p-6">
-                  <h3 className="text-sm font-semibold text-slate-900">Need help?</h3>
+                <div className="w-full max-w-full min-w-0 overflow-hidden rounded-[24px] border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur sm:p-6">
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    Need help?
+                  </h3>
                   <p className="mt-1 text-sm text-slate-600">
                     Support built for real estate documents.
                   </p>
@@ -598,7 +633,12 @@ function MiniKpi({
       : "border-slate-200 bg-white text-slate-900";
 
   return (
-    <div className={cn("w-full max-w-full overflow-hidden rounded-2xl border p-3", toneCls)}>
+    <div
+      className={cn(
+        "w-full max-w-full overflow-hidden rounded-2xl border p-3",
+        toneCls
+      )}
+    >
       <div className="text-[11px] font-semibold opacity-80">{label}</div>
       <div className="mt-1 text-xl font-semibold">{value}</div>
     </div>
@@ -655,7 +695,12 @@ function ActionCard({
       : "bg-slate-900 hover:bg-slate-800 text-white";
 
   return (
-    <div className={cn("w-full max-w-full overflow-hidden rounded-2xl border p-4", cls)}>
+    <div
+      className={cn(
+        "w-full max-w-full overflow-hidden rounded-2xl border p-4",
+        cls
+      )}
+    >
       <div className="text-sm font-semibold text-slate-900">{title}</div>
       <div className="mt-1 text-sm text-slate-600">{body}</div>
       <button
