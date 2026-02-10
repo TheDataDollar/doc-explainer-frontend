@@ -1,17 +1,16 @@
+// app/dashboard/page.tsx
 "use client";
 
 import Nav from "@/components/Nav";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-type PlanTier = "free" | "starter" | "business" | "pro";
-
 type MeResponse = {
   user_id: number;
   email: string;
   free_docs_used: number;
   is_paid: boolean;
-  plan_tier?: PlanTier; // ✅ NEW
+  plan_tier?: "free" | "pro" | "business";
 };
 
 type DocumentItem = {
@@ -34,7 +33,7 @@ type ResponseEvent = {
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
-  "https://doc-explainer-api.onrender.com";
+  "http://127.0.0.1:8000";
 
 function cn(...s: Array<string | false | null | undefined>) {
   return s.filter(Boolean).join(" ");
@@ -70,45 +69,6 @@ function getInboxCounts() {
   } catch {
     return { total: 0, newCount: 0 };
   }
-}
-
-function planLabel(me: MeResponse | null) {
-  const tier = me?.plan_tier;
-
-  // ✅ Prefer plan_tier if present
-  if (tier === "business") return "Business (Paid)";
-  if (tier === "starter" || tier === "pro") return "Pro (Paid)";
-  if (tier === "free") return "Free";
-
-  // ✅ Fallback for older APIs
-  if (me?.is_paid) return "Pro (Paid)";
-  return "Free";
-}
-
-function planPill(me: MeResponse | null) {
-  const tier = me?.plan_tier;
-
-  if (tier === "business") {
-    return {
-      text: "Business Plan Active",
-      className:
-        "border-slate-900 bg-slate-900 text-white",
-    };
-  }
-
-  if (me?.is_paid) {
-    return {
-      text: "Paid Plan Active",
-      className:
-        "border-emerald-200 bg-emerald-50 text-emerald-800",
-    };
-  }
-
-  return {
-    text: "Free Plan",
-    className:
-      "border-slate-200 bg-white text-slate-700",
-  };
 }
 
 export default function DashboardPage() {
@@ -159,17 +119,6 @@ export default function DashboardPage() {
 
         setMe(meData);
         setDocs(Array.isArray(docsData) ? docsData : []);
-
-        // ✅ Optional: cache plan tier for other pages if you want
-        try {
-          if (meData?.plan_tier) {
-            localStorage.setItem("planTier", meData.plan_tier);
-          } else {
-            localStorage.removeItem("planTier");
-          }
-        } catch {
-          // ignore
-        }
       } catch (e: any) {
         if (cancelled) return;
         setError(e?.message || "Something went wrong");
@@ -180,6 +129,7 @@ export default function DashboardPage() {
 
     load();
 
+    // poll inbox counts (frontend-only)
     const refreshInbox = () => {
       const c = getInboxCounts();
       setInboxNew(c.newCount);
@@ -207,6 +157,7 @@ export default function DashboardPage() {
     const inReview = docs.filter((d) => d.status === "in_review").length;
     const uploaded = docs.filter((d) => d.status === "uploaded").length;
 
+    // keep your logic, but present it better
     const estimatedRisksFlagged = Math.max(0, Math.round(completed * 0.3));
     const estimatedTimeSavedHours = Math.max(0, (completed * 18) / 60);
 
@@ -235,128 +186,306 @@ export default function DashboardPage() {
     }
   }, []);
 
-  const pill = planPill(me);
+  async function openBillingPortal() {
+    const token = localStorage.getItem("token");
+    if (!token) return router.push("/login");
+
+    try {
+      const res = await fetch(`${API_BASE}/billing/portal`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        alert(data?.detail || "Could not open billing portal");
+        return;
+      }
+
+      if (data?.url) window.location.href = data.url;
+      else alert("Billing portal unavailable. Please contact support.");
+    } catch {
+      alert("Network error opening billing portal. Please try again.");
+    }
+  }
+
+  const tierLabel =
+    me?.plan_tier === "business"
+      ? "Business"
+      : me?.plan_tier === "pro"
+      ? "Pro"
+      : me?.is_paid
+      ? "Paid"
+      : "Free";
+
+  const tierTone =
+    me?.plan_tier === "business" || me?.is_paid
+      ? "bg-emerald-600 text-white border-emerald-500"
+      : "bg-white text-slate-700 border-slate-200";
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-white via-emerald-50/40 to-white">
+    <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-50 via-white to-white">
       <Nav />
 
       <section className="mx-auto max-w-7xl px-6 py-10">
-        {/* Header */}
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
-              Dashboard
-            </h1>
-            <p className="mt-1 text-sm text-slate-600">
-              Track leases, HOA docs, and closing paperwork in one place.
-            </p>
-          </div>
+        {/* Hero / Top bar */}
+        <div className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-white/70 p-6 shadow-sm backdrop-blur md:p-8">
+          <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-emerald-200/30 blur-3xl" />
+          <div className="pointer-events-none absolute -left-24 -bottom-24 h-64 w-64 rounded-full bg-slate-200/40 blur-3xl" />
 
-          <div className="flex items-center gap-3">
-            <span
-              className={cn(
-                "rounded-full border px-3 py-1 text-xs font-semibold",
-                pill.className
-              )}
-            >
-              {pill.text}
-            </span>
+          <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
+                  Dashboard
+                </h1>
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold shadow-sm",
+                    tierTone
+                  )}
+                >
+                  <span className="inline-block h-2 w-2 rounded-full bg-white/90" />
+                  {me?.is_paid ? `${tierLabel} Plan` : "Free Plan"}
+                </span>
 
-            {/* Inbox shortcut */}
-            <button
-              className={cn(
-                "rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50",
-                inboxNew > 0 && "border-emerald-200"
-              )}
-              onClick={() => router.push("/dashboard/responses")}
-              title="Open responses inbox"
-            >
-              <span className="inline-flex items-center gap-2">
-                Responses
-                {inboxNew > 0 ? (
-                  <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
-                    {inboxNew}
+                {me?.is_paid ? (
+                  <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
+                    Unlimited uploads
                   </span>
-                ) : null}
-              </span>
-            </button>
+                ) : (
+                  <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700">
+                    {me?.free_docs_used ?? 0}/3 free docs used
+                  </span>
+                )}
+              </div>
 
-            <button
-              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
-              onClick={() => router.push("/draft?from=dashboard")}
-            >
-              Draft document
-            </button>
+              <p className="mt-2 max-w-2xl text-sm text-slate-600">
+                A premium workspace to analyze leases, HOA docs, and closing
+                paperwork — with clear risks, key terms, and next steps.
+              </p>
 
-            <button
-              className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
-              onClick={() => router.push("/upload")}
-            >
-              New upload
-            </button>
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <button
+                  className="rounded-2xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
+                  onClick={() => router.push("/upload")}
+                >
+                  New upload
+                </button>
+
+                <button
+                  className={cn(
+                    "rounded-2xl border bg-white px-5 py-2.5 text-sm font-semibold shadow-sm hover:bg-slate-50",
+                    inboxNew > 0 ? "border-emerald-200" : "border-slate-200"
+                  )}
+                  onClick={() => router.push("/dashboard/responses")}
+                >
+                  <span className="inline-flex items-center gap-2">
+                    Responses
+                    {inboxNew > 0 ? (
+                      <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+                        {inboxNew}
+                      </span>
+                    ) : null}
+                  </span>
+                </button>
+
+                <button
+                  className="rounded-2xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+                  onClick={() => router.push("/draft?from=dashboard")}
+                >
+                  Draft a document
+                </button>
+
+                {me?.is_paid ? (
+                  <button
+                    className="rounded-2xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+                    onClick={openBillingPortal}
+                    title="Open Stripe billing portal"
+                  >
+                    Manage billing
+                  </button>
+                ) : (
+                  <button
+                    className="rounded-2xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+                    onClick={() => router.push("/pricing")}
+                  >
+                    Upgrade
+                  </button>
+                )}
+              </div>
+
+              {/* tiny “trust” row */}
+              <div className="mt-5 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                <BadgeSoft>Not legal advice</BadgeSoft>
+                <BadgeSoft>Secure billing via Stripe</BadgeSoft>
+                <BadgeSoft>Designed for real estate workflows</BadgeSoft>
+              </div>
+            </div>
+
+            {/* Quick insight card */}
+            <div className="w-full max-w-xl rounded-3xl border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur lg:w-[420px]">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-slate-900">
+                    This week at a glance
+                  </div>
+                  <div className="mt-1 text-xs text-slate-600">
+                    Fast signal on what’s moving in your pipeline.
+                  </div>
+                </div>
+                <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700">
+                  Live
+                </span>
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <MiniKpi
+                  label="In review"
+                  value={String(stats.inReview)}
+                  tone="amber"
+                />
+                <MiniKpi
+                  label="Completed"
+                  value={String(stats.completed)}
+                  tone="emerald"
+                />
+                <MiniKpi
+                  label="Updates"
+                  value={String(inboxNew)}
+                  tone={inboxNew > 0 ? "emerald" : "slate"}
+                />
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="text-xs font-semibold text-slate-700">
+                  Recommended next action
+                </div>
+                <div className="mt-1 text-sm font-semibold text-slate-900">
+                  {stats.inReview > 0
+                    ? "Review documents in progress"
+                    : stats.completed > 0
+                    ? "Open your latest completed report"
+                    : "Upload your first document for analysis"}
+                </div>
+                <div className="mt-2 text-xs text-slate-600">
+                  {stats.inReview > 0
+                    ? "Keep your pipeline moving — in-review docs become reports once analysis completes."
+                    : stats.completed > 0
+                    ? "See key terms, risks, and suggested questions in one place."
+                    : "Get a summary + key terms + risk flags in minutes."}
+                </div>
+                <button
+                  className="mt-3 w-full rounded-xl bg-slate-900 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
+                  onClick={() => router.push(stats.inReview > 0 ? "/dashboard/history" : "/upload")}
+                >
+                  {stats.inReview > 0 ? "View pipeline" : "Start upload"}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
         {loading && (
-          <div className="mt-8 rounded-2xl border border-slate-200 bg-white/80 p-5 text-sm text-slate-600 shadow-sm">
+          <div className="mt-8 rounded-3xl border border-slate-200 bg-white/80 p-6 text-sm text-slate-600 shadow-sm backdrop-blur">
             Loading your dashboard…
           </div>
         )}
 
         {error && (
-          <div className="mt-8 rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800">
+          <div className="mt-8 rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-800">
             {error}
           </div>
         )}
 
         {!loading && !error && (
           <>
-            {/* KPI Cards */}
-            <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              <StatCard
-                label="Documents (last 30 days)"
+            {/* Premium KPI grid */}
+            <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              <KpiCard
+                title="Documents (30 days)"
                 value={String(stats.last30Count)}
-                sub="Real usage"
+                sub="Activity in the last month"
+                hint="Tracks uploads created in the last 30 days."
               />
-              <StatCard
-                label="Completed"
+              <KpiCard
+                title="Completed reports"
                 value={String(stats.completed)}
-                sub="Ready summaries"
+                sub="Ready for review"
+                hint="Completed documents have summaries + key terms."
               />
-              <StatCard
-                label="In review"
-                value={String(stats.inReview)}
-                sub="Pending"
+              <KpiCard
+                title="Estimated risks"
+                value={String(stats.estimatedRisksFlagged)}
+                sub="Items worth checking"
+                hint="A placeholder estimate until structured risk scoring is finalized."
               />
-              <StatCard
-                label="Time saved (est.)"
+              <KpiCard
+                title="Time saved (est.)"
                 value={`${stats.estimatedTimeSavedHours.toFixed(1)} hrs`}
-                sub="Will become exact later"
+                sub="Based on completed reports"
+                hint="Estimate shown — will become exact later."
               />
             </div>
 
             <div className="mt-10 grid gap-8 lg:grid-cols-3">
-              {/* Recent docs */}
+              {/* Left column */}
               <div className="lg:col-span-2 space-y-8">
-                <div className="rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-slate-900">
-                      Recent documents
-                    </h2>
-                    <button
-                      className="text-sm font-medium text-emerald-700 hover:text-emerald-800"
-                      onClick={() => router.push("/dashboard/history")}
-                    >
-                      View all
-                    </button>
+                {/* Recent documents */}
+                <div className="rounded-[28px] border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h2 className="text-lg font-semibold text-slate-900">
+                        Recent documents
+                      </h2>
+                      <p className="mt-1 text-sm text-slate-600">
+                        Open a report to view summary, key terms, and risks.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex flex-wrap gap-2">
+                        <FilterChip
+                          label="All"
+                          active={docFilter === "all"}
+                          onClick={() => setDocFilter("all")}
+                        />
+                        <FilterChip
+                          label="Uploaded"
+                          active={docFilter === "uploaded"}
+                          onClick={() => setDocFilter("uploaded")}
+                        />
+                        <FilterChip
+                          label="In review"
+                          active={docFilter === "in_review"}
+                          onClick={() => setDocFilter("in_review")}
+                        />
+                        <FilterChip
+                          label="Completed"
+                          active={docFilter === "completed"}
+                          onClick={() => setDocFilter("completed")}
+                        />
+                      </div>
+
+                      <button
+                        className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+                        onClick={() => router.push("/dashboard/history")}
+                      >
+                        View all
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="mt-4 divide-y divide-slate-200">
+                  <div className="mt-5 divide-y divide-slate-200/70">
                     {recentDocs.length === 0 ? (
-                      <div className="py-10 text-center text-sm text-slate-600">
-                        No documents in this view yet. Click <b>New upload</b> to add a file.
-                      </div>
+                      <EmptyState
+                        title="No documents yet"
+                        body="Upload a lease, HOA doc, or closing document to generate a premium report."
+                        primaryLabel="Upload a document"
+                        onPrimary={() => router.push("/upload")}
+                        secondaryLabel="Learn how it works"
+                        onSecondary={() => router.push("/support")}
+                      />
                     ) : (
                       recentDocs.map((d) => (
                         <DocumentRow
@@ -364,128 +493,194 @@ export default function DashboardPage() {
                           name={d.original_filename}
                           status={d.status}
                           date={prettyDate(d.created_at)}
-                          onOpen={() => router.push(`/dashboard/history/${d.document_id}`)}
+                          onOpen={() =>
+                            router.push(`/dashboard/history/${d.document_id}`)
+                          }
                         />
                       ))
                     )}
+                  </div>
+                </div>
+
+                {/* Responses spotlight */}
+                <div className="rounded-[28px] border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <h2 className="text-lg font-semibold text-slate-900">
+                        Responses inbox
+                      </h2>
+                      <p className="mt-1 text-sm text-slate-600">
+                        Updates, detected changes, and notes — organized across
+                        every document.
+                      </p>
+                    </div>
+
+                    <button
+                      className="rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
+                      onClick={() => router.push("/dashboard/responses")}
+                    >
+                      Open inbox
+                    </button>
+                  </div>
+
+                  <div className="mt-5 grid gap-4 sm:grid-cols-3">
+                    <MiniStat label="New updates" value={String(inboxNew)} highlight />
+                    <MiniStat label="Total items" value={String(inboxTotal)} />
+                    <MiniStat
+                      label="Focus"
+                      value={inboxNew > 0 ? "Review new" : "All clear"}
+                    />
+                  </div>
+
+                  <div className="mt-5 grid gap-4 md:grid-cols-2">
+                    <InfoCard
+                      title="What triggers an update?"
+                      body="When a report detects changes or you add notes, the inbox captures it so nothing is missed."
+                    />
+                    <InfoCard
+                      title="Pro workflow"
+                      body="Review updates → open the report → export a summary for your client or team."
+                    />
                   </div>
                 </div>
               </div>
 
               {/* Right column */}
               <div className="space-y-8">
-                {/* Account overview */}
-                <div className="rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
-                  <h2 className="text-lg font-semibold text-slate-900">
-                    Account overview
-                  </h2>
-
-                  <div className="mt-4 space-y-3 text-sm text-slate-700">
-                    <div className="flex justify-between">
-                      <span>Email</span>
-                      <span className="font-medium">{me?.email ?? "-"}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Plan</span>
-                      <span className="font-medium">{planLabel(me)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Total documents</span>
-                      <span className="font-medium">{docs.length}</span>
-                    </div>
-
-                    {/* ✅ Only show free usage if truly free */}
-                    {(me?.plan_tier === "free" || (!me?.plan_tier && !me?.is_paid)) && (
-                      <div className="flex justify-between">
-                        <span>Free usage</span>
-                        <span className="font-medium">{me?.free_docs_used ?? 0}/3</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <button
-                    className="mt-5 w-full rounded-xl border border-slate-200 bg-white py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
-                    onClick={() => router.push("/pricing")}
-                  >
-                    Manage / upgrade plan
-                  </button>
-                </div>
-
-                {/* Support */}
-                <div className="rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
-                  <h3 className="text-sm font-semibold text-slate-900">Need help?</h3>
-                  <p className="mt-1 text-sm text-slate-600">
-                    Our support team understands real estate docs.
-                  </p>
-                  <button
-                    className="mt-4 w-full rounded-xl bg-slate-900 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
-                    onClick={() => router.push("/support")}
-                  >
-                    Contact support
-                  </button>
-                </div>
-
-                {/* Analysis tools submenu */}
-                <div className="rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
+                {/* Smart Tools */}
+                <div className="rounded-[28px] border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
                   <h3 className="text-base font-semibold text-slate-900">
-                    Analysis tools
+                    Workspace tools
                   </h3>
                   <p className="mt-1 text-sm text-slate-600">
-                    Filter your pipeline and focus on what needs attention.
+                    Everything you need to run a clean real estate workflow.
                   </p>
 
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <FilterPill label="All" active={docFilter === "all"} onClick={() => setDocFilter("all")} />
-                    <FilterPill label="Uploaded" active={docFilter === "uploaded"} onClick={() => setDocFilter("uploaded")} />
-                    <FilterPill label="In review" active={docFilter === "in_review"} onClick={() => setDocFilter("in_review")} />
-                    <FilterPill label="Completed" active={docFilter === "completed"} onClick={() => setDocFilter("completed")} />
+                  <div className="mt-5 grid gap-3">
+                    <ActionCard
+                      title="Analyze a new document"
+                      body="Upload a lease, HOA, or closing doc to get a report."
+                      cta="Start upload"
+                      onClick={() => router.push("/upload")}
+                      accent="emerald"
+                    />
+                    <ActionCard
+                      title="Draft a document"
+                      body="Business plan feature: generate a draft you can refine."
+                      cta="Open drafting"
+                      onClick={() => router.push("/draft?from=dashboard")}
+                      accent="slate"
+                    />
+                    <ActionCard
+                      title="Open Output Builder"
+                      body={
+                        hasSavedOutputBuilder
+                          ? "Your last preferences are saved. Keep consistency across reports."
+                          : "Set your preferences to get stronger, more structured outputs."
+                      }
+                      cta="Configure outputs"
+                      onClick={() => router.push("/upload")}
+                      accent="white"
+                    />
                   </div>
 
-                  <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-                    <div className="font-semibold text-slate-900">Output Builder</div>
-                    <div className="mt-1 text-slate-600">
-                      {hasSavedOutputBuilder
-                        ? "Your last settings are saved from Upload."
-                        : "Set your preferences in Upload to get better summaries."}
+                  <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="text-xs font-semibold text-slate-700">
+                      Output Builder status
                     </div>
-                    <button
-                      className="mt-3 w-full rounded-xl border border-slate-200 bg-white py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
-                      onClick={() => router.push("/upload")}
-                    >
-                      Open Output Builder
-                    </button>
-                  </div>
-
-                  <div className="mt-4 space-y-2">
-                    <button
-                      className="w-full rounded-2xl bg-emerald-600 py-3 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
-                      onClick={() => router.push("/upload")}
-                    >
-                      Analyze a new document
-                    </button>
-
-                    <button
-                      className="w-full rounded-2xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
-                      onClick={() =>
-                        alert("Next: show flags/issues per document (coming soon)")
-                      }
-                    >
-                      Review flagged issues (coming soon)
-                    </button>
-
-                    <button
-                      className="w-full rounded-2xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
-                      onClick={() =>
-                        alert("Next: export summaries / share to client (coming soon)")
-                      }
-                    >
-                      Export / share summaries (coming soon)
-                    </button>
+                    <div className="mt-1 text-sm font-semibold text-slate-900">
+                      {hasSavedOutputBuilder ? "Configured" : "Not configured"}
+                    </div>
+                    <div className="mt-1 text-xs text-slate-600">
+                      {hasSavedOutputBuilder
+                        ? "Your settings will be applied to future uploads."
+                        : "Set preferences once and reuse them for every report."}
+                    </div>
                   </div>
 
                   <p className="mt-4 text-xs text-slate-500">
                     Summaries are informational only — not legal advice.
                   </p>
+                </div>
+
+                {/* Account */}
+                <div className="rounded-[28px] border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h2 className="text-lg font-semibold text-slate-900">
+                        Account
+                      </h2>
+                      <p className="mt-1 text-sm text-slate-600">
+                        Plan status and billing controls.
+                      </p>
+                    </div>
+                    <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700">
+                      {tierLabel}
+                    </span>
+                  </div>
+
+                  <div className="mt-5 space-y-3 text-sm text-slate-700">
+                    <KV label="Email" value={me?.email ?? "-"} />
+                    <KV label="Total documents" value={String(docs.length)} />
+                    {!me?.is_paid ? (
+                      <KV
+                        label="Free usage"
+                        value={`${me?.free_docs_used ?? 0}/3`}
+                      />
+                    ) : (
+                      <KV label="Usage" value="Unlimited" />
+                    )}
+                  </div>
+
+                  <div className="mt-5 grid gap-2">
+                    {!me?.is_paid ? (
+                      <button
+                        className="w-full rounded-2xl bg-emerald-600 py-3 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
+                        onClick={() => router.push("/pricing")}
+                      >
+                        Upgrade to Business
+                      </button>
+                    ) : (
+                      <button
+                        className="w-full rounded-2xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+                        onClick={openBillingPortal}
+                      >
+                        Manage billing
+                      </button>
+                    )}
+
+                    <button
+                      className="w-full rounded-2xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+                      onClick={() => router.push("/settings")}
+                    >
+                      Open settings
+                    </button>
+                  </div>
+                </div>
+
+                {/* Support */}
+                <div className="rounded-[28px] border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    Need help?
+                  </h3>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Support built for real estate documents and workflows.
+                  </p>
+
+                  <div className="mt-4 grid gap-2">
+                    <button
+                      className="w-full rounded-2xl bg-slate-900 py-3 text-sm font-semibold text-white hover:bg-slate-800"
+                      onClick={() => router.push("/support")}
+                    >
+                      Contact support
+                    </button>
+                    <button
+                      className="w-full rounded-2xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+                      onClick={() => router.push("/support")}
+                    >
+                      View FAQs
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -496,7 +691,7 @@ export default function DashboardPage() {
   );
 }
 
-/* ---------- Helpers & UI bits ---------- */
+/* ---------- Helpers & UI ---------- */
 
 function prettyDate(iso: string) {
   const d = new Date(iso);
@@ -508,20 +703,209 @@ function prettyDate(iso: string) {
   });
 }
 
-function StatCard({
-  label,
+function BadgeSoft({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 shadow-sm">
+      {children}
+    </span>
+  );
+}
+
+function KpiCard({
+  title,
   value,
   sub,
+  hint,
+}: {
+  title: string;
+  value: string;
+  sub: string;
+  hint?: string;
+}) {
+  return (
+    <div className="group relative overflow-hidden rounded-[22px] border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur">
+      <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-emerald-200/30 blur-2xl transition group-hover:scale-110" />
+      <div className="text-sm font-semibold text-slate-900">{title}</div>
+      <div className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">
+        {value}
+      </div>
+      <div className="mt-1 text-xs text-slate-500">{sub}</div>
+      {hint ? (
+        <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-600">
+          {hint}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function MiniKpi({
+  label,
+  value,
+  tone,
 }: {
   label: string;
   value: string;
-  sub: string;
+  tone: "emerald" | "amber" | "slate";
+}) {
+  const toneCls =
+    tone === "emerald"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+      : tone === "amber"
+      ? "border-amber-200 bg-amber-50 text-amber-900"
+      : "border-slate-200 bg-white text-slate-900";
+
+  return (
+    <div className={cn("rounded-2xl border p-3", toneCls)}>
+      <div className="text-[11px] font-semibold opacity-80">{label}</div>
+      <div className="mt-1 text-xl font-semibold">{value}</div>
+    </div>
+  );
+}
+
+function FilterChip({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur">
-      <div className="text-sm text-slate-600">{label}</div>
-      <div className="mt-2 text-2xl font-semibold text-slate-900">{value}</div>
-      <div className="mt-1 text-xs text-slate-500">{sub}</div>
+    <button
+      onClick={onClick}
+      className={cn(
+        "rounded-full px-3 py-1 text-xs font-semibold border transition shadow-sm",
+        active
+          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+      )}
+    >
+      {label}
+    </button>
+  );
+}
+
+function EmptyState({
+  title,
+  body,
+  primaryLabel,
+  onPrimary,
+  secondaryLabel,
+  onSecondary,
+}: {
+  title: string;
+  body: string;
+  primaryLabel: string;
+  onPrimary: () => void;
+  secondaryLabel?: string;
+  onSecondary?: () => void;
+}) {
+  return (
+    <div className="py-10 text-center">
+      <div className="mx-auto max-w-md">
+        <div className="text-base font-semibold text-slate-900">{title}</div>
+        <div className="mt-2 text-sm text-slate-600">{body}</div>
+        <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
+          <button
+            className="rounded-2xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
+            onClick={onPrimary}
+          >
+            {primaryLabel}
+          </button>
+          {secondaryLabel && onSecondary ? (
+            <button
+              className="rounded-2xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+              onClick={onSecondary}
+            >
+              {secondaryLabel}
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InfoCard({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <div className="text-sm font-semibold text-slate-900">{title}</div>
+      <div className="mt-1 text-sm text-slate-600">{body}</div>
+    </div>
+  );
+}
+
+function ActionCard({
+  title,
+  body,
+  cta,
+  onClick,
+  accent,
+}: {
+  title: string;
+  body: string;
+  cta: string;
+  onClick: () => void;
+  accent: "emerald" | "slate" | "white";
+}) {
+  const cls =
+    accent === "emerald"
+      ? "border-emerald-200 bg-emerald-50/50"
+      : accent === "slate"
+      ? "border-slate-200 bg-slate-50"
+      : "border-slate-200 bg-white";
+
+  const btn =
+    accent === "emerald"
+      ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+      : "bg-slate-900 hover:bg-slate-800 text-white";
+
+  return (
+    <div className={cn("rounded-2xl border p-4", cls)}>
+      <div className="text-sm font-semibold text-slate-900">{title}</div>
+      <div className="mt-1 text-sm text-slate-600">{body}</div>
+      <button
+        className={cn(
+          "mt-3 w-full rounded-xl py-2.5 text-sm font-semibold shadow-sm",
+          btn
+        )}
+        onClick={onClick}
+      >
+        {cta}
+      </button>
+    </div>
+  );
+}
+
+function KV({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <span className="text-slate-600">{label}</span>
+      <span className="font-medium text-slate-900">{value}</span>
+    </div>
+  );
+}
+
+function MiniStat({
+  label,
+  value,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm",
+        highlight && "border-emerald-200 bg-emerald-50/40"
+      )}
+    >
+      <div className="text-xs font-semibold text-slate-600">{label}</div>
+      <div className="mt-2 text-xl font-semibold text-slate-900">{value}</div>
     </div>
   );
 }
@@ -552,47 +936,33 @@ function DocumentRow({
       : "bg-slate-100 text-slate-800";
 
   return (
-    <div className="flex items-center justify-between py-3">
+    <div className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
-        <div className="truncate text-sm font-medium text-slate-900">{name}</div>
-        <div className="text-xs text-slate-500">{date}</div>
+        <div className="truncate text-sm font-semibold text-slate-900">
+          {name}
+        </div>
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+          <span>{date}</span>
+          <span className="text-slate-300">•</span>
+          <span
+            className={cn(
+              "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold",
+              statusStyles
+            )}
+          >
+            {label}
+          </span>
+        </div>
       </div>
 
-      <div className="flex items-center gap-3">
-        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusStyles}`}>
-          {label}
-        </span>
+      <div className="flex items-center gap-2">
         <button
           onClick={onOpen}
-          className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+          className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
         >
-          Open
+          Open report
         </button>
       </div>
     </div>
-  );
-}
-
-function FilterPill({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={[
-        "rounded-full px-3 py-1 text-xs font-semibold border transition",
-        active
-          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
-      ].join(" ")}
-    >
-      {label}
-    </button>
   );
 }
