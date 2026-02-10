@@ -1,4 +1,3 @@
-// app/dashboard/page.tsx (FULL COPY / REPLACE)
 "use client";
 
 import Nav from "@/components/Nav";
@@ -32,7 +31,7 @@ type ResponseEvent = {
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
-  "https://doc-explainer-api.onrender.com";
+  "http://127.0.0.1:8000";
 
 function cn(...s: Array<string | false | null | undefined>) {
   return s.filter(Boolean).join(" ");
@@ -70,6 +69,8 @@ function getInboxCounts() {
   }
 }
 
+type UpgradeReason = "draft" | "upload_limit";
+
 export default function DashboardPage() {
   const router = useRouter();
 
@@ -85,41 +86,22 @@ export default function DashboardPage() {
   const [inboxNew, setInboxNew] = useState(0);
   const [inboxTotal, setInboxTotal] = useState(0);
 
-  async function reload() {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      router.push("/login");
-      return;
-    }
+  // ✅ Upgrade modal state
+  const [showUpgrade, setShowUpgrade] = useState(false);
+  const [upgradeReason, setUpgradeReason] = useState<UpgradeReason>("draft");
 
-    try {
-      setLoading(true);
-      setError(null);
+  const isPaid = !!me?.is_paid;
+  const freeUsed = me?.free_docs_used ?? 0;
+  const freeLimitReached = !isPaid && freeUsed >= 3;
 
-      const [meRes, docsRes] = await Promise.all([
-        fetch(`${API_BASE}/me`, {
-          headers: { Authorization: `Bearer ${token}` },
-          cache: "no-store",
-        }),
-        fetch(`${API_BASE}/documents`, {
-          headers: { Authorization: `Bearer ${token}` },
-          cache: "no-store",
-        }),
-      ]);
+  function openUpgrade(reason: UpgradeReason) {
+    setUpgradeReason(reason);
+    setShowUpgrade(true);
+  }
 
-      if (!meRes.ok) throw new Error("Failed to load account");
-      if (!docsRes.ok) throw new Error("Failed to load documents");
-
-      const meData: MeResponse = await meRes.json();
-      const docsData: DocumentItem[] = await docsRes.json();
-
-      setMe(meData);
-      setDocs(Array.isArray(docsData) ? docsData : []);
-    } catch (e: any) {
-      setError(e?.message || "Something went wrong");
-    } finally {
-      setLoading(false);
-    }
+  function goPricing() {
+    setShowUpgrade(false);
+    router.push("/pricing");
   }
 
   useEffect(() => {
@@ -139,11 +121,9 @@ export default function DashboardPage() {
         const [meRes, docsRes] = await Promise.all([
           fetch(`${API_BASE}/me`, {
             headers: { Authorization: `Bearer ${token}` },
-            cache: "no-store",
           }),
           fetch(`${API_BASE}/documents`, {
             headers: { Authorization: `Bearer ${token}` },
-            cache: "no-store",
           }),
         ]);
 
@@ -237,13 +217,10 @@ export default function DashboardPage() {
             <p className="mt-1 text-sm text-slate-600">
               Track leases, HOA docs, and closing paperwork in one place.
             </p>
-            <p className="mt-1 text-xs text-slate-500">
-              API: <span className="font-mono">{API_BASE}</span>
-            </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            {me?.is_paid ? (
+          <div className="flex items-center gap-3">
+            {isPaid ? (
               <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
                 Paid Plan Active
               </span>
@@ -253,15 +230,7 @@ export default function DashboardPage() {
               </span>
             )}
 
-            <button
-              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
-              onClick={reload}
-              title="Refresh account + documents"
-            >
-              Refresh
-            </button>
-
-            {/* ✅ Inbox shortcut (premium) */}
+            {/* Inbox shortcut */}
             <button
               className={cn(
                 "rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50",
@@ -280,18 +249,52 @@ export default function DashboardPage() {
               </span>
             </button>
 
+            {/* ✅ Draft document (Pro-only hard lock) */}
             <button
-              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
-              onClick={() => router.push("/draft?from=dashboard")}
+              className={cn(
+                "rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50",
+                !isPaid && "opacity-90"
+              )}
+              onClick={() => {
+                if (!isPaid) return openUpgrade("draft");
+                router.push("/draft?from=dashboard");
+              }}
+              title={isPaid ? "Draft a document" : "Pro feature"}
             >
-              Draft document
+              <span className="inline-flex items-center gap-2">
+                Draft document
+                {!isPaid ? (
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                    🔒 Pro
+                  </span>
+                ) : null}
+              </span>
             </button>
 
+            {/* ✅ New upload (blocked if free limit reached) */}
             <button
-              className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
-              onClick={() => router.push("/upload")}
+              className={cn(
+                "rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700",
+                freeLimitReached && "bg-slate-400 hover:bg-slate-400"
+              )}
+              onClick={() => {
+                if (freeLimitReached) return openUpgrade("upload_limit");
+                router.push("/upload");
+              }}
+              title={
+                freeLimitReached
+                  ? "Free limit reached — upgrade to continue"
+                  : "Upload a new document"
+              }
             >
-              New upload
+              <span className="inline-flex items-center gap-2">
+                New upload
+                {freeLimitReached ? (
+                  <span className="rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-semibold">
+                    3/3 used
+                  </span>
+                ) : null}
+              </span>
             </button>
           </div>
         </div>
@@ -372,7 +375,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {/* ✅ Premium Inbox Card */}
+                {/* Premium Inbox Card */}
                 <div className="rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
                   <div className="flex items-start justify-between gap-4">
                     <div>
@@ -461,9 +464,13 @@ export default function DashboardPage() {
                         ? "Your last settings are saved from Upload."
                         : "Set your preferences in Upload to get better summaries."}
                     </div>
+
                     <button
                       className="mt-3 w-full rounded-xl border border-slate-200 bg-white py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
-                      onClick={() => router.push("/upload")}
+                      onClick={() => {
+                        if (freeLimitReached) return openUpgrade("upload_limit");
+                        router.push("/upload");
+                      }}
                     >
                       Open Output Builder
                     </button>
@@ -471,8 +478,16 @@ export default function DashboardPage() {
 
                   <div className="mt-4 space-y-2">
                     <button
-                      className="w-full rounded-2xl bg-emerald-600 py-3 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
-                      onClick={() => router.push("/upload")}
+                      className={cn(
+                        "w-full rounded-2xl py-3 text-sm font-semibold shadow-sm",
+                        freeLimitReached
+                          ? "bg-slate-400 text-white"
+                          : "bg-emerald-600 text-white hover:bg-emerald-700"
+                      )}
+                      onClick={() => {
+                        if (freeLimitReached) return openUpgrade("upload_limit");
+                        router.push("/upload");
+                      }}
                     >
                       Analyze a new document
                     </button>
@@ -515,19 +530,18 @@ export default function DashboardPage() {
                     <div className="flex justify-between">
                       <span>Plan</span>
                       <span className="font-medium">
-                        {me?.is_paid ? "Pro (Paid)" : "Free"}
+                        {isPaid ? "Pro (Paid)" : "Free"}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span>Total documents</span>
                       <span className="font-medium">{docs.length}</span>
                     </div>
-                    {!me?.is_paid && (
+
+                    {!isPaid && (
                       <div className="flex justify-between">
                         <span>Free usage</span>
-                        <span className="font-medium">
-                          {me?.free_docs_used ?? 0}/3
-                        </span>
+                        <span className="font-medium">{freeUsed}/3</span>
                       </div>
                     )}
                   </div>
@@ -560,7 +574,94 @@ export default function DashboardPage() {
           </>
         )}
       </section>
+
+      {/* ✅ Upgrade Modal */}
+      {showUpgrade && (
+        <UpgradeModal
+          reason={upgradeReason}
+          freeUsed={freeUsed}
+          onClose={() => setShowUpgrade(false)}
+          onUpgrade={goPricing}
+        />
+      )}
     </main>
+  );
+}
+
+/* ---------- Upgrade modal ---------- */
+
+function UpgradeModal({
+  reason,
+  freeUsed,
+  onClose,
+  onUpgrade,
+}: {
+  reason: UpgradeReason;
+  freeUsed: number;
+  onClose: () => void;
+  onUpgrade: () => void;
+}) {
+  const title =
+    reason === "draft"
+      ? "🔒 Pro feature"
+      : "Free limit reached";
+
+  const message =
+    reason === "draft"
+      ? "Draft Document is available on the Pro plan."
+      : `You’ve used ${Math.min(freeUsed, 3)}/3 free documents. Upgrade to continue uploading unlimited documents.`;
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center px-4">
+      <div
+        className="absolute inset-0 bg-black/30"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div className="relative w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 shadow-xl">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
+            <p className="mt-2 text-sm text-slate-600">{message}</p>
+
+            <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+              <div className="font-semibold">What you unlock on Pro</div>
+              <ul className="mt-2 list-disc pl-5 text-emerald-900/90">
+                <li>Unlimited uploads</li>
+                <li>Draft Document tool</li>
+                <li>Faster workflow & priority support</li>
+              </ul>
+            </div>
+          </div>
+
+          <button
+            onClick={onClose}
+            className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+          <button
+            onClick={onClose}
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+          >
+            Not now
+          </button>
+          <button
+            onClick={onUpgrade}
+            className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+          >
+            Upgrade to Pro
+          </button>
+        </div>
+
+        <div className="mt-3 text-xs text-slate-500">
+          Cancel anytime. No legal advice — summaries and drafting assist only.
+        </div>
+      </div>
+    </div>
   );
 }
 
