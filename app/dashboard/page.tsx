@@ -221,16 +221,16 @@ export default function DashboardPage() {
       : "bg-white text-slate-700 border-slate-200";
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-50 via-white to-white">
+    <main className="min-h-screen w-full overflow-x-hidden bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-50 via-white to-white">
       <Nav />
 
-      <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-10">
-        {/* Header/hero (unchanged) */}
-        <div className="relative overflow-hidden rounded-[24px] border border-slate-200 bg-white/70 p-4 shadow-sm backdrop-blur sm:p-6 md:p-8">
+      <section className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-10">
+        {/* HERO */}
+        <div className="relative w-full max-w-full overflow-hidden rounded-[24px] border border-slate-200 bg-white/70 p-4 shadow-sm backdrop-blur sm:p-6 md:p-8">
           <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-emerald-200/30 blur-3xl" />
           <div className="pointer-events-none absolute -left-24 -bottom-24 h-64 w-64 rounded-full bg-slate-200/40 blur-3xl" />
 
-          <div className="relative grid gap-5 lg:grid-cols-[1fr_420px] lg:items-start">
+          <div className="relative grid w-full max-w-full gap-5 lg:grid-cols-[1fr_420px] lg:items-start">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
@@ -263,7 +263,7 @@ export default function DashboardPage() {
                 paperwork — with clear risks, key terms, and next steps.
               </p>
 
-              <div className="mt-4 grid gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
+              <div className="mt-4 grid w-full max-w-full gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
                 <button
                   className="w-full sm:w-auto rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
                   onClick={() => router.push("/upload")}
@@ -321,7 +321,7 @@ export default function DashboardPage() {
 
             <div className="w-full max-w-full overflow-hidden rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-sm backdrop-blur sm:p-5">
               <div className="flex items-start justify-between gap-3">
-                <div>
+                <div className="min-w-0">
                   <div className="text-sm font-semibold text-slate-900">
                     This week at a glance
                   </div>
@@ -329,22 +329,14 @@ export default function DashboardPage() {
                     Quick signal on what’s moving.
                   </div>
                 </div>
-                <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700">
+                <span className="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700">
                   Live
                 </span>
               </div>
 
               <div className="mt-4 grid grid-cols-3 gap-3">
-                <MiniKpi
-                  label="In review"
-                  value={String(stats.inReview)}
-                  tone="amber"
-                />
-                <MiniKpi
-                  label="Completed"
-                  value={String(stats.completed)}
-                  tone="emerald"
-                />
+                <MiniKpi label="In review" value={String(stats.inReview)} tone="amber" />
+                <MiniKpi label="Completed" value={String(stats.completed)} tone="emerald" />
                 <MiniKpi
                   label="Updates"
                   value={String(inboxNew)}
@@ -373,9 +365,7 @@ export default function DashboardPage() {
                 <button
                   className="mt-3 w-full rounded-xl bg-slate-900 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
                   onClick={() =>
-                    router.push(
-                      stats.inReview > 0 ? "/dashboard/history" : "/upload"
-                    )
+                    router.push(stats.inReview > 0 ? "/dashboard/history" : "/upload")
                   }
                 >
                   {stats.inReview > 0 ? "View pipeline" : "Start upload"}
@@ -386,20 +376,20 @@ export default function DashboardPage() {
         </div>
 
         {loading && (
-          <div className="mt-6 rounded-3xl border border-slate-200 bg-white/80 p-6 text-sm text-slate-600 shadow-sm backdrop-blur">
+          <div className="mt-6 w-full max-w-full overflow-hidden rounded-3xl border border-slate-200 bg-white/80 p-6 text-sm text-slate-600 shadow-sm backdrop-blur">
             Loading your dashboard…
           </div>
         )}
 
         {error && (
-          <div className="mt-6 rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-800">
+          <div className="mt-6 w-full max-w-full overflow-hidden rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-800">
             {error}
           </div>
         )}
 
         {!loading && !error && (
           <>
-            <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-8 grid w-full max-w-full gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <KpiCard
                 title="Documents (30 days)"
                 value={String(stats.last30Count)}
@@ -426,10 +416,10 @@ export default function DashboardPage() {
               />
             </div>
 
-            <div className="mt-8 grid gap-6 lg:grid-cols-3">
+            <div className="mt-8 grid w-full max-w-full gap-6 lg:grid-cols-3">
+              {/* LEFT: Recent docs */}
               <div className="lg:col-span-2 space-y-6">
-                {/* ✅ Recent documents: now hard-clamped to width */}
-                <div className="max-w-full overflow-hidden rounded-[24px] border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur sm:p-6">
+                <div className="w-full max-w-full overflow-hidden rounded-[24px] border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur sm:p-6">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
                       <h2 className="text-lg font-semibold text-slate-900">
@@ -440,28 +430,13 @@ export default function DashboardPage() {
                       </p>
                     </div>
 
-                    <div className="w-full sm:w-auto">
-                      <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                        <FilterChip
-                          label="All"
-                          active={docFilter === "all"}
-                          onClick={() => setDocFilter("all")}
-                        />
-                        <FilterChip
-                          label="Uploaded"
-                          active={docFilter === "uploaded"}
-                          onClick={() => setDocFilter("uploaded")}
-                        />
-                        <FilterChip
-                          label="In review"
-                          active={docFilter === "in_review"}
-                          onClick={() => setDocFilter("in_review")}
-                        />
-                        <FilterChip
-                          label="Completed"
-                          active={docFilter === "completed"}
-                          onClick={() => setDocFilter("completed")}
-                        />
+                    {/* Scroll-contained chip row (no negative margins) */}
+                    <div className="w-full sm:w-auto max-w-full">
+                      <div className="flex max-w-full items-center gap-2 overflow-x-auto pb-1">
+                        <FilterChip label="All" active={docFilter === "all"} onClick={() => setDocFilter("all")} />
+                        <FilterChip label="Uploaded" active={docFilter === "uploaded"} onClick={() => setDocFilter("uploaded")} />
+                        <FilterChip label="In review" active={docFilter === "in_review"} onClick={() => setDocFilter("in_review")} />
+                        <FilterChip label="Completed" active={docFilter === "completed"} onClick={() => setDocFilter("completed")} />
                         <button
                           className="shrink-0 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
                           onClick={() => router.push("/dashboard/history")}
@@ -494,9 +469,9 @@ export default function DashboardPage() {
                 </div>
               </div>
 
+              {/* RIGHT: Workspace tools + Need help */}
               <div className="space-y-6">
-                {/* ✅ Workspace tools: hard clamp */}
-                <div className="max-w-full overflow-hidden rounded-[24px] border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur sm:p-6">
+                <div className="w-full max-w-full overflow-hidden rounded-[24px] border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur sm:p-6">
                   <h3 className="text-base font-semibold text-slate-900">
                     Workspace tools
                   </h3>
@@ -537,11 +512,8 @@ export default function DashboardPage() {
                   </p>
                 </div>
 
-                {/* ✅ Need help: hard clamp */}
-                <div className="max-w-full overflow-hidden rounded-[24px] border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur sm:p-6">
-                  <h3 className="text-sm font-semibold text-slate-900">
-                    Need help?
-                  </h3>
+                <div className="w-full max-w-full overflow-hidden rounded-[24px] border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur sm:p-6">
+                  <h3 className="text-sm font-semibold text-slate-900">Need help?</h3>
                   <p className="mt-1 text-sm text-slate-600">
                     Support built for real estate documents.
                   </p>
@@ -593,7 +565,7 @@ function KpiCard({
   hint?: string;
 }) {
   return (
-    <div className="group relative overflow-hidden rounded-[22px] border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur">
+    <div className="group relative w-full max-w-full overflow-hidden rounded-[22px] border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur">
       <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-emerald-200/30 blur-2xl transition group-hover:scale-110" />
       <div className="text-sm font-semibold text-slate-900">{title}</div>
       <div className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">
@@ -626,7 +598,7 @@ function MiniKpi({
       : "border-slate-200 bg-white text-slate-900";
 
   return (
-    <div className={cn("rounded-2xl border p-3", toneCls)}>
+    <div className={cn("w-full max-w-full overflow-hidden rounded-2xl border p-3", toneCls)}>
       <div className="text-[11px] font-semibold opacity-80">{label}</div>
       <div className="mt-1 text-xl font-semibold">{value}</div>
     </div>
@@ -683,7 +655,7 @@ function ActionCard({
       : "bg-slate-900 hover:bg-slate-800 text-white";
 
   return (
-    <div className={cn("max-w-full overflow-hidden rounded-2xl border p-4", cls)}>
+    <div className={cn("w-full max-w-full overflow-hidden rounded-2xl border p-4", cls)}>
       <div className="text-sm font-semibold text-slate-900">{title}</div>
       <div className="mt-1 text-sm text-slate-600">{body}</div>
       <button
@@ -725,7 +697,7 @@ function DocumentRow({
       : "bg-slate-100 text-slate-800";
 
   return (
-    <div className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex w-full max-w-full flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
         <div className="truncate text-sm font-semibold text-slate-900">
           {name}
@@ -746,7 +718,7 @@ function DocumentRow({
 
       <button
         onClick={onOpen}
-        className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+        className="w-full sm:w-auto rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
       >
         Open report
       </button>
