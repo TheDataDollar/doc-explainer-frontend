@@ -61,13 +61,11 @@ export default function Nav() {
     return () => window.clearInterval(t);
   }, [pathname]);
 
-  // close menus on route change
   useEffect(() => {
     setMobileOpen(false);
     setUserOpen(false);
   }, [pathname]);
 
-  // close user dropdown on outside click / ESC
   useEffect(() => {
     function onDown(e: MouseEvent) {
       if (!userRef.current) return;
@@ -86,32 +84,33 @@ export default function Nav() {
 
   function logout() {
     localStorage.removeItem("token");
-    setIsLoggedIn(false);
     router.push("/login");
   }
 
   function isActive(href: string) {
-    if (href === "/") return pathname === "/";
     return pathname?.startsWith(href);
   }
 
-  const loggedOutLinks: NavItem[] = useMemo(
-    () => [
-      { href: "/", label: "Home" },
-      { href: "/pricing", label: "Pricing" },
-      { href: "/about", label: "About" },
-      { href: "/support", label: "Support" },
-    ],
-    []
-  );
+  /* ---------- NAV DEFINITIONS ---------- */
 
-  // ✅ Logged-in: clean app nav only (Settings last)
+  const loggedOutLinks: NavItem[] = [
+    { href: "/", label: "Home" },
+    { href: "/pricing", label: "Pricing" },
+    { href: "/about", label: "About" },
+    { href: "/support", label: "Support" },
+  ];
+
+  // ✅ FINAL logged-in order (Settings ALWAYS last)
   const loggedInLinks: NavItem[] = useMemo(
     () => [
       { href: "/dashboard", label: "Dashboard" },
       { href: "/upload", label: "Upload" },
       { href: "/draft", label: "Draft" },
-      { href: "/dashboard/responses", label: "Responses", badge: inboxNew },
+      {
+        href: "/dashboard/responses",
+        label: "Responses",
+        badge: inboxNew,
+      },
       { href: "/settings", label: "Settings" },
     ],
     [inboxNew]
@@ -145,7 +144,7 @@ export default function Nav() {
           </div>
         </Link>
 
-        {/* Desktop center nav */}
+        {/* Desktop nav */}
         <nav className="hidden md:flex flex-1 items-center justify-center">
           <div className="flex items-center gap-6">
             {navLinks.map((l) => (
@@ -167,7 +166,7 @@ export default function Nav() {
           </div>
         </nav>
 
-        {/* Desktop right actions */}
+        {/* Right actions */}
         <div className="hidden md:flex items-center justify-end gap-3 min-w-[220px]">
           {isLoggedIn ? (
             <>
@@ -182,70 +181,38 @@ export default function Nav() {
               <div className="relative" ref={userRef}>
                 <button
                   onClick={() => setUserOpen((v) => !v)}
-                  className={cn(
-                    "inline-flex items-center justify-center rounded-full border border-slate-200 bg-white h-10 w-10 shadow-sm hover:bg-slate-50",
-                    userOpen && "border-emerald-200"
-                  )}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm hover:bg-slate-50"
                   aria-label="Account menu"
-                  aria-expanded={userOpen}
-                  aria-haspopup="menu"
                 >
-                  <span className="text-sm font-bold text-slate-900">⋯</span>
+                  <span className="text-sm font-bold">⋯</span>
                 </button>
 
-                {userOpen ? (
-                  <div
-                    role="menu"
-                    className="absolute right-0 mt-2 w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg"
-                  >
-                    <div className="px-4 py-3">
-                      <div className="text-xs font-semibold text-slate-500">
-                        Account
-                      </div>
-                      <div className="mt-1 text-sm font-semibold text-slate-900">
-                        Settings & billing
-                      </div>
-                    </div>
-
-                    <div className="border-t border-slate-200" />
-
+                {userOpen && (
+                  <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-slate-200 bg-white shadow-lg">
                     <Link
                       href="/settings"
-                      role="menuitem"
-                      className={cn(
-                        "flex items-center justify-between px-4 py-2.5 text-sm hover:bg-slate-50",
-                        isActive("/settings")
-                          ? "bg-emerald-50 text-slate-900 font-semibold"
-                          : "text-slate-700"
-                      )}
+                      className="block px-4 py-2.5 text-sm hover:bg-slate-50"
                     >
-                      <span>Settings</span>
-                      <span className="text-slate-300">›</span>
+                      Settings
                     </Link>
-
                     <button
                       onClick={logout}
                       className="w-full text-left px-4 py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-50"
-                      role="menuitem"
                     >
                       Log out
                     </button>
                   </div>
-                ) : null}
+                )}
               </div>
             </>
           ) : (
             <>
-              <Link
-                href="/login"
-                className="text-sm font-medium text-slate-700 hover:text-slate-900"
-              >
+              <Link href="/login" className="text-sm font-medium">
                 Login
               </Link>
-
               <Link
                 href="/register"
-                className="rounded-full bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-emerald-700"
+                className="rounded-full bg-emerald-600 px-4 py-2 text-sm font-medium text-white"
               >
                 Try it free
               </Link>
@@ -253,94 +220,36 @@ export default function Nav() {
           )}
         </div>
 
-        {/* Mobile actions */}
-        <div className="flex items-center gap-2 md:hidden">
-          {isLoggedIn && inboxNew > 0 ? (
-            <Link
-              href="/dashboard/responses"
-              className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-800"
-              aria-label="New responses"
-            >
-              {inboxNew} new
-            </Link>
-          ) : null}
-
+        {/* Mobile toggle */}
+        <div className="md:hidden">
           <button
             onClick={() => setMobileOpen((v) => !v)}
-            className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white p-2 text-slate-800 shadow-sm"
-            aria-label="Open menu"
-            aria-expanded={mobileOpen}
+            className="rounded-xl border border-slate-200 bg-white p-2"
           >
-            <span className="text-lg leading-none">{mobileOpen ? "✕" : "☰"}</span>
+            {mobileOpen ? "✕" : "☰"}
           </button>
         </div>
       </div>
 
-      {/* Mobile dropdown */}
-      {mobileOpen ? (
-        <div className="md:hidden border-t border-slate-200/70 bg-white/95 backdrop-blur">
-          <div className="mx-auto max-w-7xl px-4 py-3">
-            <div className="grid gap-1">
-              {navLinks.map((l) => (
-                <Link
-                  key={l.href}
-                  href={l.href}
-                  className={cn(
-                    "flex items-center justify-between rounded-xl px-3 py-2 text-sm",
-                    isActive(l.href)
-                      ? "bg-emerald-50 text-slate-900 font-semibold"
-                      : "text-slate-700 hover:bg-slate-50"
-                  )}
-                >
-                  <span className="inline-flex items-center gap-2">
-                    {l.label}
-                    {typeof l.badge === "number" && l.badge > 0 ? (
-                      <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
-                        {l.badge}
-                      </span>
-                    ) : null}
-                  </span>
-                  <span className="text-slate-300">›</span>
-                </Link>
-              ))}
-            </div>
-
-            <div className="mt-3 flex items-center gap-2">
-              {isLoggedIn ? (
-                <>
-                  <Link
-                    href="/upload"
-                    className="flex-1 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 text-center"
-                  >
-                    New upload
-                  </Link>
-                  <button
-                    onClick={logout}
-                    className="flex-1 rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
-                  >
-                    Log out
-                  </button>
-                </>
-              ) : (
-                <>
-                  <Link
-                    href="/login"
-                    className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50 text-center"
-                  >
-                    Login
-                  </Link>
-                  <Link
-                    href="/register"
-                    className="flex-1 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 text-center"
-                  >
-                    Try it free
-                  </Link>
-                </>
-              )}
-            </div>
+      {/* Mobile menu */}
+      {mobileOpen && (
+        <div className="md:hidden border-t border-slate-200 bg-white">
+          <div className="px-4 py-3 space-y-1">
+            {navLinks.map((l) => (
+              <Link
+                key={l.href}
+                href={l.href}
+                className="flex justify-between rounded-xl px-3 py-2 text-sm hover:bg-slate-50"
+              >
+                <span>{l.label}</span>
+                {l.badge ? (
+                  <span className="text-xs font-semibold">{l.badge}</span>
+                ) : null}
+              </Link>
+            ))}
           </div>
         </div>
-      ) : null}
+      )}
     </header>
   );
 }
