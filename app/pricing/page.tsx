@@ -3,7 +3,7 @@
 import Footer from "../../components/Footer";
 import Link from "next/link";
 import Nav from "@/components/Nav";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 /**
  * Choose your yearly price:
@@ -13,6 +13,15 @@ import { useMemo, useState } from "react";
 const YEARLY_PRICE: 420 | 1100 = 420;
 
 type Billing = "monthly" | "yearly";
+type PlanKey = "starter" | "pro" | "business";
+
+type PricesResponse = {
+  ok: boolean;
+  prices: {
+    pro: { monthly: string; yearly: string };
+    business: { monthly: string; yearly: string };
+  };
+};
 
 export default function PricingPage() {
   const [billing, setBilling] = useState<Billing>("monthly");
@@ -22,19 +31,42 @@ export default function PricingPage() {
     process.env.NEXT_PUBLIC_API_URL ||
     "https://doc-explainer-api.onrender.com";
 
-  const PRICE_IDS = {
-  pro: {
-    // $47 plan (Stripe “Starter” price IDs)
-    monthly: "price_1SyzVELBOsv1gBi7Bk9TagpX",
-    yearly: "price_1SyzYoLBOsv1gBi7yvxY1GAv",
-  },
-  business: {
-    // $209 plan (Stripe “Pro” price IDs)
-    monthly: "price_1SyzXKLBOsv1gBi7GOKQaIER",
-    yearly: "price_1SyzXKLBOsv1gBi7RhlNjAZ0",
-  },
-} as const;
+  const [priceIds, setPriceIds] = useState<PricesResponse["prices"] | null>(null);
+  const [loadingPrices, setLoadingPrices] = useState(true);
+  const [pricesError, setPricesError] = useState<string | null>(null);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPrices() {
+      try {
+        setLoadingPrices(true);
+        setPricesError(null);
+
+        const res = await fetch(`${API}/billing/prices`, { method: "GET" });
+        const data = (await res.json().catch(() => null)) as PricesResponse | null;
+
+        if (!res.ok || !data?.ok || !data?.prices) {
+          throw new Error(
+            (data as any)?.detail ||
+              "Could not load pricing config from server. Please refresh."
+          );
+        }
+
+        if (!cancelled) setPriceIds(data.prices);
+      } catch (e: any) {
+        if (!cancelled) setPricesError(e?.message || "Failed to load prices");
+      } finally {
+        if (!cancelled) setLoadingPrices(false);
+      }
+    }
+
+    loadPrices();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [API]);
 
   async function startCheckout(planKey: "pro" | "business") {
     const token = localStorage.getItem("token");
@@ -43,10 +75,13 @@ export default function PricingPage() {
       return;
     }
 
+    if (!priceIds) {
+      alert("Prices are still loading. Please wait a moment and try again.");
+      return;
+    }
+
     const priceId =
-      billing === "monthly"
-        ? PRICE_IDS[planKey].monthly
-        : PRICE_IDS[planKey].yearly;
+      billing === "monthly" ? priceIds[planKey].monthly : priceIds[planKey].yearly;
 
     try {
       const res = await fetch(`${API}/billing/checkout`, {
@@ -58,13 +93,18 @@ export default function PricingPage() {
         body: JSON.stringify({ price_id: priceId }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({} as any));
+
       if (!res.ok) {
         alert(data?.detail || "Checkout failed");
         return;
       }
 
-      // Redirect to Stripe Checkout
+      if (!data?.url) {
+        alert("Checkout did not return a redirect URL. Please contact support.");
+        return;
+      }
+
       window.location.href = data.url;
     } catch {
       alert("Network error starting checkout");
@@ -128,16 +168,16 @@ export default function PricingPage() {
         badge: "For teams",
       },
     ],
-    [billing]
+    [billing, priceIds]
   );
 
-  const pricingFor = (planKey: "starter" | "pro" | "business") => {
+  const pricingFor = (planKey: PlanKey) => {
     return billing === "monthly" ? monthly[planKey] : yearly[planKey];
   };
 
   const periodFor = () => (billing === "monthly" ? "/mo" : "/yr");
 
-  const dealFor = (planKey: "starter" | "pro" | "business") => {
+  const dealFor = (planKey: PlanKey) => {
     const m = monthly[planKey];
     const y = yearly[planKey];
     if (m === 0 || y === 0) return null;
@@ -205,6 +245,19 @@ export default function PricingPage() {
           </p>
         </div>
 
+        {/* Server price config status */}
+        <div className="mx-auto mt-6 max-w-4xl">
+          {loadingPrices ? (
+            <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 text-sm text-slate-700 shadow-sm backdrop-blur">
+              Loading billing configuration…
+            </div>
+          ) : pricesError ? (
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+              {pricesError}
+            </div>
+          ) : null}
+        </div>
+
         <div className="mx-auto mt-8 max-w-5xl">
           <div className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur md:flex-row md:items-center md:justify-between">
             <div>
@@ -249,7 +302,7 @@ export default function PricingPage() {
         <div className="mx-auto mt-8 max-w-5xl">
           <div className="grid gap-6 md:grid-cols-3">
             {plans.map((p) => {
-              const key = p.key as "starter" | "pro" | "business";
+              const key = p.key as PlanKey;
               const price = pricingFor(key);
               const deal = billing === "yearly" ? dealFor(key) : null;
 
@@ -275,6 +328,7 @@ export default function PricingPage() {
                       : null
                   }
                   showDeal={billing === "yearly"}
+                  disabled={!priceIds || !!pricesError || loadingPrices}
                 />
               );
             })}
@@ -339,6 +393,7 @@ function PlanCard({
   highlight,
   showDeal,
   deal,
+  disabled,
 }: {
   name: string;
   badge: string | null;
@@ -351,6 +406,7 @@ function PlanCard({
   highlight?: boolean;
   showDeal: boolean;
   deal: null | { saveDollars: number; savePct: number; effectiveMonthly: number };
+  disabled: boolean;
 }) {
   return (
     <div
@@ -380,7 +436,9 @@ function PlanCard({
       {showDeal && deal && name !== "Starter" && (
         <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 text-sm text-emerald-900">
           <div className="font-semibold">
-            {deal.saveDollars > 0 ? `Save $${deal.saveDollars}/yr (${deal.savePct}%)` : "Yearly pricing"}
+            {deal.saveDollars > 0
+              ? `Save $${deal.saveDollars}/yr (${deal.savePct}%)`
+              : "Yearly pricing"}
           </div>
           <div className="mt-1 text-emerald-800/90">
             Equivalent to <b>${deal.effectiveMonthly.toFixed(0)}/mo</b>
@@ -403,15 +461,18 @@ function PlanCard({
 
       {cta.onClick ? (
         <button
-          onClick={cta.onClick}
+          onClick={() => !disabled && cta.onClick?.()}
+          disabled={disabled}
           className={[
             "mt-6 inline-flex w-full items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold shadow-sm transition",
-            highlight
+            disabled
+              ? "bg-slate-200 text-slate-500 cursor-not-allowed"
+              : highlight
               ? "bg-emerald-600 text-white hover:bg-emerald-700"
               : "border border-slate-200 bg-white text-slate-900 hover:bg-slate-50",
           ].join(" ")}
         >
-          {cta.label}
+          {disabled ? "Loading…" : cta.label}
         </button>
       ) : (
         <Link
