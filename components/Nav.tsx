@@ -37,11 +37,7 @@ function getInboxNewCount(): number {
   }
 }
 
-type NavItem = {
-  href: string;
-  label: string;
-  badge?: number;
-};
+type NavItem = { href: string; label: string; badge?: number };
 
 export default function Nav() {
   const router = useRouter();
@@ -51,9 +47,9 @@ export default function Nav() {
   const [inboxNew, setInboxNew] = useState(0);
 
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
+  const [userOpen, setUserOpen] = useState(false);
 
-  const moreRef = useRef<HTMLDivElement | null>(null);
+  const userRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setIsLoggedIn(!!localStorage.getItem("token"));
@@ -68,17 +64,17 @@ export default function Nav() {
   // close menus on route change
   useEffect(() => {
     setMobileOpen(false);
-    setMoreOpen(false);
+    setUserOpen(false);
   }, [pathname]);
 
-  // close "More" dropdown on outside click / ESC
+  // close user dropdown on outside click / ESC
   useEffect(() => {
     function onDown(e: MouseEvent) {
-      if (!moreRef.current) return;
-      if (!moreRef.current.contains(e.target as Node)) setMoreOpen(false);
+      if (!userRef.current) return;
+      if (!userRef.current.contains(e.target as Node)) setUserOpen(false);
     }
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setMoreOpen(false);
+      if (e.key === "Escape") setUserOpen(false);
     }
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
@@ -99,11 +95,7 @@ export default function Nav() {
     return pathname?.startsWith(href);
   }
 
-  const linkBase =
-    "text-sm text-slate-600 hover:text-slate-900 transition-colors";
-  const activeLink = "text-slate-900 font-semibold";
-
-  const publicLinks: NavItem[] = useMemo(
+  const loggedOutLinks: NavItem[] = useMemo(
     () => [
       { href: "/", label: "Home" },
       { href: "/pricing", label: "Pricing" },
@@ -113,32 +105,33 @@ export default function Nav() {
     []
   );
 
-  // ✅ clean logged-in nav: only the core daily actions appear as top links
-  const authedPrimary: NavItem[] = useMemo(
+  // ✅ Logged-in: clean app nav only (Settings last)
+  const loggedInLinks: NavItem[] = useMemo(
     () => [
       { href: "/dashboard", label: "Dashboard" },
       { href: "/upload", label: "Upload" },
+      { href: "/draft", label: "Draft" },
       { href: "/dashboard/responses", label: "Responses", badge: inboxNew },
+      { href: "/settings", label: "Settings" },
     ],
     [inboxNew]
   );
 
-  // everything else goes into "More" (keeps it looking real + not crammed)
-  const authedMore: NavItem[] = useMemo(
-    () => [
-      { href: "/draft", label: "Draft" },
-      { href: "/pricing", label: "Pricing" },
-      { href: "/support", label: "Support" },
-      { href: "/about", label: "About" },
-    ],
-    []
-  );
+  const navLinks = isLoggedIn ? loggedInLinks : loggedOutLinks;
+
+  const linkBase =
+    "text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors";
+  const activeLink =
+    "text-slate-900 font-semibold underline underline-offset-[18px] decoration-emerald-300";
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-200/70 bg-white/80 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 md:px-6 md:py-4">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6 md:py-4">
         {/* Brand */}
-        <Link href={isLoggedIn ? "/dashboard" : "/"} className="flex items-center gap-3">
+        <Link
+          href={isLoggedIn ? "/dashboard" : "/"}
+          className="flex items-center gap-3 min-w-[220px]"
+        >
           <div className="grid h-10 w-10 place-items-center rounded-2xl bg-emerald-600 text-white shadow-sm">
             <span className="text-sm font-black">RE</span>
           </div>
@@ -152,98 +145,30 @@ export default function Nav() {
           </div>
         </Link>
 
-        {/* Desktop nav */}
-        <nav className="hidden items-center gap-6 md:flex">
-          {isLoggedIn ? (
-            <>
-              {authedPrimary.map((l) => (
-                <Link
-                  key={l.href}
-                  href={l.href}
-                  className={cn(linkBase, isActive(l.href) && activeLink)}
-                >
-                  <span className="inline-flex items-center gap-2">
-                    {l.label}
-                    {typeof l.badge === "number" && l.badge > 0 ? (
-                      <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
-                        {l.badge}
-                      </span>
-                    ) : null}
-                  </span>
-                </Link>
-              ))}
-
-              {/* More dropdown */}
-              <div className="relative" ref={moreRef}>
-                <button
-                  type="button"
-                  onClick={() => setMoreOpen((v) => !v)}
-                  className={cn(
-                    "inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 shadow-sm hover:bg-slate-50",
-                    moreOpen && "border-emerald-200"
-                  )}
-                  aria-haspopup="menu"
-                  aria-expanded={moreOpen}
-                >
-                  More
-                  <span className="text-slate-400">{moreOpen ? "▴" : "▾"}</span>
-                </button>
-
-                {moreOpen ? (
-                  <div
-                    role="menu"
-                    className="absolute right-0 mt-2 w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg"
-                  >
-                    <div className="px-3 py-2 text-[11px] font-semibold text-slate-500">
-                      Tools & help
-                    </div>
-
-                    <div className="grid">
-                      {authedMore.map((l) => (
-                        <Link
-                          key={l.href}
-                          href={l.href}
-                          role="menuitem"
-                          className={cn(
-                            "flex items-center justify-between px-4 py-2.5 text-sm transition hover:bg-slate-50",
-                            isActive(l.href)
-                              ? "bg-emerald-50 text-slate-900 font-semibold"
-                              : "text-slate-700"
-                          )}
-                        >
-                          <span>{l.label}</span>
-                          <span className="text-slate-300">›</span>
-                        </Link>
-                      ))}
-                    </div>
-
-                    <div className="border-t border-slate-200 p-3">
-                      <button
-                        onClick={logout}
-                        className="w-full rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
-                      >
-                        Log out
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            </>
-          ) : (
-            publicLinks.map((l) => (
+        {/* Desktop center nav */}
+        <nav className="hidden md:flex flex-1 items-center justify-center">
+          <div className="flex items-center gap-6">
+            {navLinks.map((l) => (
               <Link
                 key={l.href}
                 href={l.href}
                 className={cn(linkBase, isActive(l.href) && activeLink)}
               >
-                {l.label}
+                <span className="inline-flex items-center gap-2">
+                  {l.label}
+                  {typeof l.badge === "number" && l.badge > 0 ? (
+                    <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+                      {l.badge}
+                    </span>
+                  ) : null}
+                </span>
               </Link>
-            ))
-          )}
+            ))}
+          </div>
         </nav>
 
-        {/* Actions (desktop) */}
-        <div className="hidden items-center gap-3 md:flex">
+        {/* Desktop right actions */}
+        <div className="hidden md:flex items-center justify-end gap-3 min-w-[220px]">
           {isLoggedIn ? (
             <>
               <Link
@@ -252,6 +177,62 @@ export default function Nav() {
               >
                 New upload
               </Link>
+
+              {/* User menu */}
+              <div className="relative" ref={userRef}>
+                <button
+                  onClick={() => setUserOpen((v) => !v)}
+                  className={cn(
+                    "inline-flex items-center justify-center rounded-full border border-slate-200 bg-white h-10 w-10 shadow-sm hover:bg-slate-50",
+                    userOpen && "border-emerald-200"
+                  )}
+                  aria-label="Account menu"
+                  aria-expanded={userOpen}
+                  aria-haspopup="menu"
+                >
+                  <span className="text-sm font-bold text-slate-900">⋯</span>
+                </button>
+
+                {userOpen ? (
+                  <div
+                    role="menu"
+                    className="absolute right-0 mt-2 w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg"
+                  >
+                    <div className="px-4 py-3">
+                      <div className="text-xs font-semibold text-slate-500">
+                        Account
+                      </div>
+                      <div className="mt-1 text-sm font-semibold text-slate-900">
+                        Settings & billing
+                      </div>
+                    </div>
+
+                    <div className="border-t border-slate-200" />
+
+                    <Link
+                      href="/settings"
+                      role="menuitem"
+                      className={cn(
+                        "flex items-center justify-between px-4 py-2.5 text-sm hover:bg-slate-50",
+                        isActive("/settings")
+                          ? "bg-emerald-50 text-slate-900 font-semibold"
+                          : "text-slate-700"
+                      )}
+                    >
+                      <span>Settings</span>
+                      <span className="text-slate-300">›</span>
+                    </Link>
+
+                    <button
+                      onClick={logout}
+                      className="w-full text-left px-4 py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-50"
+                      role="menuitem"
+                    >
+                      Log out
+                    </button>
+                  </div>
+                ) : null}
+              </div>
             </>
           ) : (
             <>
@@ -272,7 +253,7 @@ export default function Nav() {
           )}
         </div>
 
-        {/* Mobile button */}
+        {/* Mobile actions */}
         <div className="flex items-center gap-2 md:hidden">
           {isLoggedIn && inboxNew > 0 ? (
             <Link
@@ -298,58 +279,35 @@ export default function Nav() {
       {/* Mobile dropdown */}
       {mobileOpen ? (
         <div className="md:hidden border-t border-slate-200/70 bg-white/95 backdrop-blur">
-          <div className="mx-auto max-w-6xl px-4 py-3">
-            {isLoggedIn ? (
-              <>
-                <div className="grid gap-1">
-                  {authedPrimary.map((l) => (
-                    <Link
-                      key={l.href}
-                      href={l.href}
-                      className={cn(
-                        "flex items-center justify-between rounded-xl px-3 py-2 text-sm",
-                        isActive(l.href)
-                          ? "bg-emerald-50 text-slate-900 font-semibold"
-                          : "text-slate-700 hover:bg-slate-50"
-                      )}
-                    >
-                      <span className="inline-flex items-center gap-2">
-                        {l.label}
-                        {typeof l.badge === "number" && l.badge > 0 ? (
-                          <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
-                            {l.badge}
-                          </span>
-                        ) : null}
+          <div className="mx-auto max-w-7xl px-4 py-3">
+            <div className="grid gap-1">
+              {navLinks.map((l) => (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  className={cn(
+                    "flex items-center justify-between rounded-xl px-3 py-2 text-sm",
+                    isActive(l.href)
+                      ? "bg-emerald-50 text-slate-900 font-semibold"
+                      : "text-slate-700 hover:bg-slate-50"
+                  )}
+                >
+                  <span className="inline-flex items-center gap-2">
+                    {l.label}
+                    {typeof l.badge === "number" && l.badge > 0 ? (
+                      <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+                        {l.badge}
                       </span>
-                      <span className="text-slate-300">›</span>
-                    </Link>
-                  ))}
-                </div>
+                    ) : null}
+                  </span>
+                  <span className="text-slate-300">›</span>
+                </Link>
+              ))}
+            </div>
 
-                <div className="mt-3">
-                  <div className="px-1 text-[11px] font-semibold text-slate-500">
-                    More
-                  </div>
-                  <div className="mt-2 grid gap-1">
-                    {authedMore.map((l) => (
-                      <Link
-                        key={l.href}
-                        href={l.href}
-                        className={cn(
-                          "flex items-center justify-between rounded-xl px-3 py-2 text-sm",
-                          isActive(l.href)
-                            ? "bg-emerald-50 text-slate-900 font-semibold"
-                            : "text-slate-700 hover:bg-slate-50"
-                        )}
-                      >
-                        <span>{l.label}</span>
-                        <span className="text-slate-300">›</span>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mt-3 flex items-center gap-2">
+            <div className="mt-3 flex items-center gap-2">
+              {isLoggedIn ? (
+                <>
                   <Link
                     href="/upload"
                     className="flex-1 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 text-center"
@@ -362,29 +320,9 @@ export default function Nav() {
                   >
                     Log out
                   </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="grid gap-1">
-                  {publicLinks.map((l) => (
-                    <Link
-                      key={l.href}
-                      href={l.href}
-                      className={cn(
-                        "flex items-center justify-between rounded-xl px-3 py-2 text-sm",
-                        isActive(l.href)
-                          ? "bg-emerald-50 text-slate-900 font-semibold"
-                          : "text-slate-700 hover:bg-slate-50"
-                      )}
-                    >
-                      <span>{l.label}</span>
-                      <span className="text-slate-300">›</span>
-                    </Link>
-                  ))}
-                </div>
-
-                <div className="mt-3 flex items-center gap-2">
+                </>
+              ) : (
+                <>
                   <Link
                     href="/login"
                     className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50 text-center"
@@ -397,9 +335,9 @@ export default function Nav() {
                   >
                     Try it free
                   </Link>
-                </div>
-              </>
-            )}
+                </>
+              )}
+            </div>
           </div>
         </div>
       ) : null}
