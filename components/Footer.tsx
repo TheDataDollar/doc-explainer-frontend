@@ -52,6 +52,17 @@ export default function Footer() {
                   Support
                 </Link>
               </li>
+
+              {/* Partners */}
+              <li>
+                <Link
+                  href="/partners"
+                  className="hover:text-slate-900 font-medium"
+                >
+                  Partners
+                </Link>
+              </li>
+
               <li>
                 <Link href="/register" className="hover:text-slate-900">
                   Create account
