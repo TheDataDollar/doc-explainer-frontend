@@ -225,13 +225,12 @@ export default function DashboardPage() {
       <Nav />
 
       <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-10">
-        {/* Hero */}
+        {/* Header/hero (unchanged) */}
         <div className="relative overflow-hidden rounded-[24px] border border-slate-200 bg-white/70 p-4 shadow-sm backdrop-blur sm:p-6 md:p-8">
           <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-emerald-200/30 blur-3xl" />
           <div className="pointer-events-none absolute -left-24 -bottom-24 h-64 w-64 rounded-full bg-slate-200/40 blur-3xl" />
 
           <div className="relative grid gap-5 lg:grid-cols-[1fr_420px] lg:items-start">
-            {/* Left */}
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
@@ -320,8 +319,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Right card */}
-            <div className="w-full rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-sm backdrop-blur sm:p-5">
+            <div className="w-full max-w-full overflow-hidden rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-sm backdrop-blur sm:p-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="text-sm font-semibold text-slate-900">
@@ -336,9 +334,17 @@ export default function DashboardPage() {
                 </span>
               </div>
 
-              <div className="mt-4 grid gap-3 grid-cols-3">
-                <MiniKpi label="In review" value={String(stats.inReview)} tone="amber" />
-                <MiniKpi label="Completed" value={String(stats.completed)} tone="emerald" />
+              <div className="mt-4 grid grid-cols-3 gap-3">
+                <MiniKpi
+                  label="In review"
+                  value={String(stats.inReview)}
+                  tone="amber"
+                />
+                <MiniKpi
+                  label="Completed"
+                  value={String(stats.completed)}
+                  tone="emerald"
+                />
                 <MiniKpi
                   label="Updates"
                   value={String(inboxNew)}
@@ -367,7 +373,9 @@ export default function DashboardPage() {
                 <button
                   className="mt-3 w-full rounded-xl bg-slate-900 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
                   onClick={() =>
-                    router.push(stats.inReview > 0 ? "/dashboard/history" : "/upload")
+                    router.push(
+                      stats.inReview > 0 ? "/dashboard/history" : "/upload"
+                    )
                   }
                 >
                   {stats.inReview > 0 ? "View pipeline" : "Start upload"}
@@ -420,9 +428,10 @@ export default function DashboardPage() {
 
             <div className="mt-8 grid gap-6 lg:grid-cols-3">
               <div className="lg:col-span-2 space-y-6">
-                <div className="rounded-[24px] border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur sm:p-6">
+                {/* ✅ Recent documents: now hard-clamped to width */}
+                <div className="max-w-full overflow-hidden rounded-[24px] border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur sm:p-6">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
+                    <div className="min-w-0">
                       <h2 className="text-lg font-semibold text-slate-900">
                         Recent documents
                       </h2>
@@ -431,9 +440,8 @@ export default function DashboardPage() {
                       </p>
                     </div>
 
-                    {/* ✅ Mobile: scrollable filter row so nothing gets cut off */}
                     <div className="w-full sm:w-auto">
-                      <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+                      <div className="flex items-center gap-2 overflow-x-auto pb-1">
                         <FilterChip
                           label="All"
                           active={docFilter === "all"}
@@ -487,7 +495,8 @@ export default function DashboardPage() {
               </div>
 
               <div className="space-y-6">
-                <div className="rounded-[24px] border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur sm:p-6">
+                {/* ✅ Workspace tools: hard clamp */}
+                <div className="max-w-full overflow-hidden rounded-[24px] border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur sm:p-6">
                   <h3 className="text-base font-semibold text-slate-900">
                     Workspace tools
                   </h3>
@@ -528,8 +537,11 @@ export default function DashboardPage() {
                   </p>
                 </div>
 
-                <div className="rounded-[24px] border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur sm:p-6">
-                  <h3 className="text-sm font-semibold text-slate-900">Need help?</h3>
+                {/* ✅ Need help: hard clamp */}
+                <div className="max-w-full overflow-hidden rounded-[24px] border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur sm:p-6">
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    Need help?
+                  </h3>
                   <p className="mt-1 text-sm text-slate-600">
                     Support built for real estate documents.
                   </p>
@@ -671,12 +683,12 @@ function ActionCard({
       : "bg-slate-900 hover:bg-slate-800 text-white";
 
   return (
-    <div className={cn("rounded-2xl border p-4", cls)}>
+    <div className={cn("max-w-full overflow-hidden rounded-2xl border p-4", cls)}>
       <div className="text-sm font-semibold text-slate-900">{title}</div>
       <div className="mt-1 text-sm text-slate-600">{body}</div>
       <button
         className={cn(
-          "mt-3 w-full rounded-xl py-2.5 text-sm font-semibold shadow-sm",
+          "mt-3 w-full max-w-full rounded-xl py-2.5 text-sm font-semibold shadow-sm",
           btn
         )}
         onClick={onClick}
