@@ -4,11 +4,14 @@ import Nav from "@/components/Nav";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
+type PlanTier = "free" | "starter" | "business" | "pro";
+
 type MeResponse = {
   user_id: number;
   email: string;
   free_docs_used: number;
   is_paid: boolean;
+  plan_tier?: PlanTier; // ✅ NEW
 };
 
 type DocumentItem = {
@@ -31,7 +34,7 @@ type ResponseEvent = {
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
-  "http://127.0.0.1:8000";
+  "https://doc-explainer-api.onrender.com";
 
 function cn(...s: Array<string | false | null | undefined>) {
   return s.filter(Boolean).join(" ");
@@ -69,7 +72,44 @@ function getInboxCounts() {
   }
 }
 
-type UpgradeReason = "draft" | "upload_limit";
+function planLabel(me: MeResponse | null) {
+  const tier = me?.plan_tier;
+
+  // ✅ Prefer plan_tier if present
+  if (tier === "business") return "Business (Paid)";
+  if (tier === "starter" || tier === "pro") return "Pro (Paid)";
+  if (tier === "free") return "Free";
+
+  // ✅ Fallback for older APIs
+  if (me?.is_paid) return "Pro (Paid)";
+  return "Free";
+}
+
+function planPill(me: MeResponse | null) {
+  const tier = me?.plan_tier;
+
+  if (tier === "business") {
+    return {
+      text: "Business Plan Active",
+      className:
+        "border-slate-900 bg-slate-900 text-white",
+    };
+  }
+
+  if (me?.is_paid) {
+    return {
+      text: "Paid Plan Active",
+      className:
+        "border-emerald-200 bg-emerald-50 text-emerald-800",
+    };
+  }
+
+  return {
+    text: "Free Plan",
+    className:
+      "border-slate-200 bg-white text-slate-700",
+  };
+}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -85,24 +125,6 @@ export default function DashboardPage() {
 
   const [inboxNew, setInboxNew] = useState(0);
   const [inboxTotal, setInboxTotal] = useState(0);
-
-  // ✅ Upgrade modal state
-  const [showUpgrade, setShowUpgrade] = useState(false);
-  const [upgradeReason, setUpgradeReason] = useState<UpgradeReason>("draft");
-
-  const isPaid = !!me?.is_paid;
-  const freeUsed = me?.free_docs_used ?? 0;
-  const freeLimitReached = !isPaid && freeUsed >= 3;
-
-  function openUpgrade(reason: UpgradeReason) {
-    setUpgradeReason(reason);
-    setShowUpgrade(true);
-  }
-
-  function goPricing() {
-    setShowUpgrade(false);
-    router.push("/pricing");
-  }
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -137,6 +159,17 @@ export default function DashboardPage() {
 
         setMe(meData);
         setDocs(Array.isArray(docsData) ? docsData : []);
+
+        // ✅ Optional: cache plan tier for other pages if you want
+        try {
+          if (meData?.plan_tier) {
+            localStorage.setItem("planTier", meData.plan_tier);
+          } else {
+            localStorage.removeItem("planTier");
+          }
+        } catch {
+          // ignore
+        }
       } catch (e: any) {
         if (cancelled) return;
         setError(e?.message || "Something went wrong");
@@ -147,7 +180,6 @@ export default function DashboardPage() {
 
     load();
 
-    // poll inbox counts (frontend-only)
     const refreshInbox = () => {
       const c = getInboxCounts();
       setInboxNew(c.newCount);
@@ -203,6 +235,8 @@ export default function DashboardPage() {
     }
   }, []);
 
+  const pill = planPill(me);
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-white via-emerald-50/40 to-white">
       <Nav />
@@ -220,15 +254,14 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            {isPaid ? (
-              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
-                Paid Plan Active
-              </span>
-            ) : (
-              <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700">
-                Free Plan
-              </span>
-            )}
+            <span
+              className={cn(
+                "rounded-full border px-3 py-1 text-xs font-semibold",
+                pill.className
+              )}
+            >
+              {pill.text}
+            </span>
 
             {/* Inbox shortcut */}
             <button
@@ -249,52 +282,18 @@ export default function DashboardPage() {
               </span>
             </button>
 
-            {/* ✅ Draft document (Pro-only hard lock) */}
             <button
-              className={cn(
-                "rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50",
-                !isPaid && "opacity-90"
-              )}
-              onClick={() => {
-                if (!isPaid) return openUpgrade("draft");
-                router.push("/draft?from=dashboard");
-              }}
-              title={isPaid ? "Draft a document" : "Pro feature"}
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+              onClick={() => router.push("/draft?from=dashboard")}
             >
-              <span className="inline-flex items-center gap-2">
-                Draft document
-                {!isPaid ? (
-                  <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
-                    🔒 Pro
-                  </span>
-                ) : null}
-              </span>
+              Draft document
             </button>
 
-            {/* ✅ New upload (blocked if free limit reached) */}
             <button
-              className={cn(
-                "rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700",
-                freeLimitReached && "bg-slate-400 hover:bg-slate-400"
-              )}
-              onClick={() => {
-                if (freeLimitReached) return openUpgrade("upload_limit");
-                router.push("/upload");
-              }}
-              title={
-                freeLimitReached
-                  ? "Free limit reached — upgrade to continue"
-                  : "Upload a new document"
-              }
+              className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
+              onClick={() => router.push("/upload")}
             >
-              <span className="inline-flex items-center gap-2">
-                New upload
-                {freeLimitReached ? (
-                  <span className="rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-semibold">
-                    3/3 used
-                  </span>
-                ) : null}
-              </span>
+              New upload
             </button>
           </div>
         </div>
@@ -356,8 +355,7 @@ export default function DashboardPage() {
                   <div className="mt-4 divide-y divide-slate-200">
                     {recentDocs.length === 0 ? (
                       <div className="py-10 text-center text-sm text-slate-600">
-                        No documents in this view yet. Click <b>New upload</b> to
-                        add a file.
+                        No documents in this view yet. Click <b>New upload</b> to add a file.
                       </div>
                     ) : (
                       recentDocs.map((d) => (
@@ -366,63 +364,67 @@ export default function DashboardPage() {
                           name={d.original_filename}
                           status={d.status}
                           date={prettyDate(d.created_at)}
-                          onOpen={() =>
-                            router.push(`/dashboard/history/${d.document_id}`)
-                          }
+                          onOpen={() => router.push(`/dashboard/history/${d.document_id}`)}
                         />
                       ))
                     )}
-                  </div>
-                </div>
-
-                {/* Premium Inbox Card */}
-                <div className="rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h2 className="text-lg font-semibold text-slate-900">
-                        Responses inbox
-                      </h2>
-                      <p className="mt-1 text-sm text-slate-600">
-                        A central place for updates, detected changes, and your
-                        notes across all documents.
-                      </p>
-                    </div>
-
-                    <button
-                      className="rounded-2xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
-                      onClick={() => router.push("/dashboard/responses")}
-                    >
-                      Open inbox
-                    </button>
-                  </div>
-
-                  <div className="mt-5 grid gap-4 sm:grid-cols-3">
-                    <MiniStat
-                      label="New updates"
-                      value={String(inboxNew)}
-                      highlight
-                    />
-                    <MiniStat label="Total items" value={String(inboxTotal)} />
-                    <MiniStat
-                      label="Focus"
-                      value={inboxNew > 0 ? "Review new" : "All clear"}
-                    />
-                  </div>
-
-                  <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-                    <div className="font-semibold text-slate-900">
-                      How this works
-                    </div>
-                    <div className="mt-1 text-slate-600">
-                      Each document hub can receive updates. This inbox
-                      aggregates them so you don’t miss changes.
-                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Right column */}
               <div className="space-y-8">
+                {/* Account overview */}
+                <div className="rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
+                  <h2 className="text-lg font-semibold text-slate-900">
+                    Account overview
+                  </h2>
+
+                  <div className="mt-4 space-y-3 text-sm text-slate-700">
+                    <div className="flex justify-between">
+                      <span>Email</span>
+                      <span className="font-medium">{me?.email ?? "-"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Plan</span>
+                      <span className="font-medium">{planLabel(me)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Total documents</span>
+                      <span className="font-medium">{docs.length}</span>
+                    </div>
+
+                    {/* ✅ Only show free usage if truly free */}
+                    {(me?.plan_tier === "free" || (!me?.plan_tier && !me?.is_paid)) && (
+                      <div className="flex justify-between">
+                        <span>Free usage</span>
+                        <span className="font-medium">{me?.free_docs_used ?? 0}/3</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    className="mt-5 w-full rounded-xl border border-slate-200 bg-white py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                    onClick={() => router.push("/pricing")}
+                  >
+                    Manage / upgrade plan
+                  </button>
+                </div>
+
+                {/* Support */}
+                <div className="rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
+                  <h3 className="text-sm font-semibold text-slate-900">Need help?</h3>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Our support team understands real estate docs.
+                  </p>
+                  <button
+                    className="mt-4 w-full rounded-xl bg-slate-900 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
+                    onClick={() => router.push("/support")}
+                  >
+                    Contact support
+                  </button>
+                </div>
+
                 {/* Analysis tools submenu */}
                 <div className="rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
                   <h3 className="text-base font-semibold text-slate-900">
@@ -433,44 +435,22 @@ export default function DashboardPage() {
                   </p>
 
                   <div className="mt-4 flex flex-wrap gap-2">
-                    <FilterPill
-                      label="All"
-                      active={docFilter === "all"}
-                      onClick={() => setDocFilter("all")}
-                    />
-                    <FilterPill
-                      label="Uploaded"
-                      active={docFilter === "uploaded"}
-                      onClick={() => setDocFilter("uploaded")}
-                    />
-                    <FilterPill
-                      label="In review"
-                      active={docFilter === "in_review"}
-                      onClick={() => setDocFilter("in_review")}
-                    />
-                    <FilterPill
-                      label="Completed"
-                      active={docFilter === "completed"}
-                      onClick={() => setDocFilter("completed")}
-                    />
+                    <FilterPill label="All" active={docFilter === "all"} onClick={() => setDocFilter("all")} />
+                    <FilterPill label="Uploaded" active={docFilter === "uploaded"} onClick={() => setDocFilter("uploaded")} />
+                    <FilterPill label="In review" active={docFilter === "in_review"} onClick={() => setDocFilter("in_review")} />
+                    <FilterPill label="Completed" active={docFilter === "completed"} onClick={() => setDocFilter("completed")} />
                   </div>
 
                   <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-                    <div className="font-semibold text-slate-900">
-                      Output Builder
-                    </div>
+                    <div className="font-semibold text-slate-900">Output Builder</div>
                     <div className="mt-1 text-slate-600">
                       {hasSavedOutputBuilder
                         ? "Your last settings are saved from Upload."
                         : "Set your preferences in Upload to get better summaries."}
                     </div>
-
                     <button
                       className="mt-3 w-full rounded-xl border border-slate-200 bg-white py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
-                      onClick={() => {
-                        if (freeLimitReached) return openUpgrade("upload_limit");
-                        router.push("/upload");
-                      }}
+                      onClick={() => router.push("/upload")}
                     >
                       Open Output Builder
                     </button>
@@ -478,16 +458,8 @@ export default function DashboardPage() {
 
                   <div className="mt-4 space-y-2">
                     <button
-                      className={cn(
-                        "w-full rounded-2xl py-3 text-sm font-semibold shadow-sm",
-                        freeLimitReached
-                          ? "bg-slate-400 text-white"
-                          : "bg-emerald-600 text-white hover:bg-emerald-700"
-                      )}
-                      onClick={() => {
-                        if (freeLimitReached) return openUpgrade("upload_limit");
-                        router.push("/upload");
-                      }}
+                      className="w-full rounded-2xl bg-emerald-600 py-3 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
+                      onClick={() => router.push("/upload")}
                     >
                       Analyze a new document
                     </button>
@@ -515,153 +487,12 @@ export default function DashboardPage() {
                     Summaries are informational only — not legal advice.
                   </p>
                 </div>
-
-                {/* Account overview */}
-                <div className="rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
-                  <h2 className="text-lg font-semibold text-slate-900">
-                    Account overview
-                  </h2>
-
-                  <div className="mt-4 space-y-3 text-sm text-slate-700">
-                    <div className="flex justify-between">
-                      <span>Email</span>
-                      <span className="font-medium">{me?.email ?? "-"}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Plan</span>
-                      <span className="font-medium">
-                        {isPaid ? "Pro (Paid)" : "Free"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Total documents</span>
-                      <span className="font-medium">{docs.length}</span>
-                    </div>
-
-                    {!isPaid && (
-                      <div className="flex justify-between">
-                        <span>Free usage</span>
-                        <span className="font-medium">{freeUsed}/3</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <button
-                    className="mt-5 w-full rounded-xl border border-slate-200 bg-white py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
-                    onClick={() => router.push("/pricing")}
-                  >
-                    Upgrade plan
-                  </button>
-                </div>
-
-                {/* Support */}
-                <div className="rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
-                  <h3 className="text-sm font-semibold text-slate-900">
-                    Need help?
-                  </h3>
-                  <p className="mt-1 text-sm text-slate-600">
-                    Our support team understands real estate docs.
-                  </p>
-                  <button
-                    className="mt-4 w-full rounded-xl bg-slate-900 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
-                    onClick={() => router.push("/support")}
-                  >
-                    Contact support
-                  </button>
-                </div>
               </div>
             </div>
           </>
         )}
       </section>
-
-      {/* ✅ Upgrade Modal */}
-      {showUpgrade && (
-        <UpgradeModal
-          reason={upgradeReason}
-          freeUsed={freeUsed}
-          onClose={() => setShowUpgrade(false)}
-          onUpgrade={goPricing}
-        />
-      )}
     </main>
-  );
-}
-
-/* ---------- Upgrade modal ---------- */
-
-function UpgradeModal({
-  reason,
-  freeUsed,
-  onClose,
-  onUpgrade,
-}: {
-  reason: UpgradeReason;
-  freeUsed: number;
-  onClose: () => void;
-  onUpgrade: () => void;
-}) {
-  const title =
-    reason === "draft"
-      ? "🔒 Pro feature"
-      : "Free limit reached";
-
-  const message =
-    reason === "draft"
-      ? "Draft Document is available on the Pro plan."
-      : `You’ve used ${Math.min(freeUsed, 3)}/3 free documents. Upgrade to continue uploading unlimited documents.`;
-
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center px-4">
-      <div
-        className="absolute inset-0 bg-black/30"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-      <div className="relative w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 shadow-xl">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
-            <p className="mt-2 text-sm text-slate-600">{message}</p>
-
-            <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-              <div className="font-semibold">What you unlock on Pro</div>
-              <ul className="mt-2 list-disc pl-5 text-emerald-900/90">
-                <li>Unlimited uploads</li>
-                <li>Draft Document tool</li>
-                <li>Faster workflow & priority support</li>
-              </ul>
-            </div>
-          </div>
-
-          <button
-            onClick={onClose}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            ✕
-          </button>
-        </div>
-
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
-          <button
-            onClick={onClose}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
-          >
-            Not now
-          </button>
-          <button
-            onClick={onUpgrade}
-            className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
-          >
-            Upgrade to Pro
-          </button>
-        </div>
-
-        <div className="mt-3 text-xs text-slate-500">
-          Cancel anytime. No legal advice — summaries and drafting assist only.
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -691,28 +522,6 @@ function StatCard({
       <div className="text-sm text-slate-600">{label}</div>
       <div className="mt-2 text-2xl font-semibold text-slate-900">{value}</div>
       <div className="mt-1 text-xs text-slate-500">{sub}</div>
-    </div>
-  );
-}
-
-function MiniStat({
-  label,
-  value,
-  highlight,
-}: {
-  label: string;
-  value: string;
-  highlight?: boolean;
-}) {
-  return (
-    <div
-      className={cn(
-        "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm",
-        highlight && "border-emerald-200 bg-emerald-50/40"
-      )}
-    >
-      <div className="text-xs font-semibold text-slate-600">{label}</div>
-      <div className="mt-2 text-xl font-semibold text-slate-900">{value}</div>
     </div>
   );
 }
@@ -750,9 +559,7 @@ function DocumentRow({
       </div>
 
       <div className="flex items-center gap-3">
-        <span
-          className={`rounded-full px-3 py-1 text-xs font-semibold ${statusStyles}`}
-        >
+        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusStyles}`}>
           {label}
         </span>
         <button
