@@ -24,11 +24,9 @@ function getInboxNewCount(): number {
       } catch {
         events = [];
       }
-      if (!Array.isArray(events)) continue;
 
-      for (const e of events) {
-        if (e?.isNew) count += 1;
-      }
+      if (!Array.isArray(events)) continue;
+      for (const e of events) if (e?.isNew) count += 1;
     }
     return count;
   } catch {
@@ -51,10 +49,8 @@ export default function Nav() {
 
   useEffect(() => {
     setIsLoggedIn(!!localStorage.getItem("token"));
-
     const refresh = () => setInboxNew(getInboxNewCount());
     refresh();
-
     const t = window.setInterval(refresh, 2000);
     return () => window.clearInterval(t);
   }, [pathname]);
@@ -69,15 +65,8 @@ export default function Nav() {
       if (!userRef.current) return;
       if (!userRef.current.contains(e.target as Node)) setUserOpen(false);
     }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setUserOpen(false);
-    }
     document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
+    return () => document.removeEventListener("mousedown", onDown);
   }, []);
 
   function logout() {
@@ -96,7 +85,7 @@ export default function Nav() {
     { href: "/pricing", label: "Pricing" },
     { href: "/about", label: "About" },
     { href: "/support", label: "Support" },
-    { href: "/login", label: "Login" }, // ✅ mobile login fix
+    { href: "/login", label: "Login" },
   ];
 
   const loggedInLinks: NavItem[] = useMemo(
@@ -116,14 +105,9 @@ export default function Nav() {
 
   const navLinks = isLoggedIn ? loggedInLinks : loggedOutLinks;
 
-  const linkBase =
-    "text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors";
-  const activeLink =
-    "text-slate-900 font-semibold underline underline-offset-[18px] decoration-emerald-300";
-
   return (
-    <header className="relative md:sticky md:top-0 z-50 w-full border-b border-slate-200/80 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/70">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-2 sm:py-3 md:px-6 md:py-4">
+    <header className="relative md:sticky md:top-0 z-50 w-full border-b border-slate-200/80 bg-white/95 backdrop-blur">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-2 md:px-6 md:py-4">
         {/* Brand */}
         <Link
           href={isLoggedIn ? "/dashboard" : "/"}
@@ -132,8 +116,7 @@ export default function Nav() {
           <div className="grid h-10 w-10 place-items-center rounded-2xl bg-emerald-600 text-white shadow-sm">
             <span className="text-sm font-black">RE</span>
           </div>
-
-          <div className="leading-tight">
+          <div>
             <div className="text-sm font-semibold text-slate-900">
               Real Estate Explainer
             </div>
@@ -149,21 +132,18 @@ export default function Nav() {
             <Link
               key={l.href}
               href={l.href}
-              className={cn(linkBase, isActive(l.href) && activeLink)}
+              className={cn(
+                "text-sm font-medium text-slate-600 hover:text-slate-900",
+                isActive(l.href) &&
+                  "text-slate-900 font-semibold underline underline-offset-[18px] decoration-emerald-300"
+              )}
             >
-              <span className="inline-flex items-center gap-2">
-                {l.label}
-                {typeof l.badge === "number" && l.badge > 0 && (
-                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
-                    {l.badge}
-                  </span>
-                )}
-              </span>
+              {l.label}
             </Link>
           ))}
         </nav>
 
-        {/* Desktop right */}
+        {/* Desktop actions */}
         <div className="hidden md:flex items-center gap-3">
           {isLoggedIn ? (
             <>
@@ -177,7 +157,7 @@ export default function Nav() {
               <div className="relative" ref={userRef}>
                 <button
                   onClick={() => setUserOpen((v) => !v)}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm hover:bg-slate-50"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white"
                 >
                   ⋯
                 </button>
@@ -213,7 +193,7 @@ export default function Nav() {
         {/* Mobile toggle */}
         <button
           onClick={() => setMobileOpen((v) => !v)}
-          className="md:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-sm"
+          className="md:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white"
         >
           {mobileOpen ? "✕" : "☰"}
         </button>
@@ -222,26 +202,30 @@ export default function Nav() {
       {/* Mobile menu */}
       {mobileOpen && (
         <div className="md:hidden border-t border-slate-200 bg-white">
-          <div className="px-4 py-3 space-y-1">
+          <div className="px-4 py-4 space-y-1">
             {navLinks.map((l) => (
               <Link
                 key={l.href}
                 href={l.href}
-                className="flex items-center justify-between rounded-xl px-3 py-3 text-sm font-medium text-slate-800 hover:bg-slate-50"
+                className="block rounded-xl px-3 py-3 text-sm font-medium text-slate-800 hover:bg-slate-50"
               >
                 {l.label}
-                {typeof l.badge === "number" && l.badge > 0 && (
-                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
-                    {l.badge}
-                  </span>
-                )}
               </Link>
             ))}
+
+            {!isLoggedIn && (
+              <Link
+                href="/register"
+                className="mt-4 block rounded-xl bg-emerald-600 px-4 py-3 text-center text-sm font-semibold text-white hover:bg-emerald-700"
+              >
+                Try it free (3 docs)
+              </Link>
+            )}
 
             {isLoggedIn && (
               <button
                 onClick={logout}
-                className="mt-2 w-full rounded-xl bg-rose-50 px-3 py-3 text-left text-sm font-semibold text-rose-700"
+                className="mt-3 w-full rounded-xl bg-rose-50 px-4 py-3 text-left text-sm font-semibold text-rose-700"
               >
                 Log out
               </button>
