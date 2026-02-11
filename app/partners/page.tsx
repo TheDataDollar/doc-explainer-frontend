@@ -3,6 +3,16 @@ import Link from "next/link";
 export default function PartnersPage() {
   return (
     <main className="mx-auto max-w-6xl px-6 py-14">
+      {/* Back to home */}
+      <div className="mb-6">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-700 hover:underline"
+        >
+          ← Back to home
+        </Link>
+      </div>
+
       <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
         {/* Left */}
         <div>
