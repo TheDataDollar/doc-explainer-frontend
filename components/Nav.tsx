@@ -126,7 +126,7 @@ export default function Nav() {
   return (
     <header className="sticky top-0 z-50 w-full max-w-full overflow-x-clip border-b border-slate-200/70 bg-white/80 backdrop-blur">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-3 md:px-6 md:py-4">
-        {/* Brand (MOBILE SAFE: no forced min-width, text truncates) */}
+        {/* Brand */}
         <Link
           href={isLoggedIn ? "/dashboard" : "/"}
           className="flex min-w-0 items-center gap-3"
@@ -168,7 +168,7 @@ export default function Nav() {
           </div>
         </nav>
 
-        {/* Right actions */}
+        {/* Right actions (desktop) */}
         <div className="hidden md:flex min-w-0 items-center justify-end gap-3">
           {isLoggedIn ? (
             <>
@@ -242,6 +242,7 @@ export default function Nav() {
       {mobileOpen && (
         <div className="md:hidden w-full max-w-full overflow-x-clip border-t border-slate-200 bg-white">
           <div className="px-4 py-3 space-y-1">
+            {/* Main links */}
             {navLinks.map((l) => (
               <Link
                 key={l.href}
@@ -256,6 +257,48 @@ export default function Nav() {
                 ) : null}
               </Link>
             ))}
+
+            {/* Divider */}
+            <div className="my-2 h-px w-full bg-slate-200/80" />
+
+            {/* Mobile-only auth/actions */}
+            {isLoggedIn ? (
+              <>
+                <Link
+                  href="/upload"
+                  className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50"
+                >
+                  <span>New upload</span>
+                  <span className="text-emerald-600">＋</span>
+                </Link>
+
+                <button
+                  onClick={logout}
+                  className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50"
+                >
+                  <span>Log out</span>
+                  <span>→</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50"
+                >
+                  <span>Login</span>
+                  <span>→</span>
+                </Link>
+
+                <Link
+                  href="/register"
+                  className="flex w-full items-center justify-between rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
+                >
+                  <span>Try it free</span>
+                  <span>→</span>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       )}
