@@ -97,17 +97,17 @@ export default function LoginPage() {
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-gradient-to-b from-white via-emerald-50/30 to-white">
-      {/* Soft “cool” background */}
+      {/* Soft background */}
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(16,185,129,0.10),transparent_55%)]" />
-        <div className="absolute left-1/2 top-[-160px] h-[360px] w-[900px] -translate-x-1/2 rounded-full bg-slate-100 blur-3xl opacity-70" />
-        <div className="absolute right-[-120px] top-[120px] h-[260px] w-[260px] rounded-full bg-emerald-100 blur-3xl opacity-60" />
-        <div className="absolute left-[-120px] bottom-[120px] h-[260px] w-[260px] rounded-full bg-slate-100 blur-3xl opacity-70" />
+        <div className="absolute left-1/2 top-[-180px] h-[360px] w-[900px] -translate-x-1/2 rounded-full bg-slate-100 blur-3xl opacity-70" />
+        <div className="absolute right-[-140px] top-[120px] h-[260px] w-[260px] rounded-full bg-emerald-100 blur-3xl opacity-60" />
+        <div className="absolute left-[-140px] bottom-[120px] h-[260px] w-[260px] rounded-full bg-slate-100 blur-3xl opacity-70" />
       </div>
 
-      <section className="mx-auto max-w-5xl px-6 py-10">
-        {/* Top back button (sits like a header chip) */}
-        <div className="mb-8">
+      <section className="mx-auto max-w-5xl px-6 py-8 sm:py-10">
+        {/* Back chip */}
+        <div className="mb-6 sm:mb-8">
           <a
             href="/"
             className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm backdrop-blur hover:bg-white"
@@ -116,24 +116,25 @@ export default function LoginPage() {
           </a>
         </div>
 
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-2 md:items-center">
-          {/* LEFT */}
-          <div className="order-2 md:order-1">
+        {/* On mobile: LEFT first, then RIGHT. On desktop: 2 columns */}
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-2 md:items-center">
+          {/* LEFT (Welcome) — always first on mobile */}
+          <div className="order-1">
             <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur">
               Secure login • Private by default
             </div>
 
-            <h1 className="mt-5 text-4xl font-semibold tracking-tight text-slate-900">
+            <h1 className="mt-4 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
               Welcome back
             </h1>
 
-            <p className="mt-3 max-w-lg text-base text-slate-600">
+            <p className="mt-3 max-w-lg text-sm leading-6 text-slate-600 sm:text-base">
               Log in to view your documents, reviews, and next steps before you
               sign.
             </p>
 
-            {/* Cool “status” card */}
-            <div className="mt-6 rounded-3xl border border-slate-200 bg-white/75 p-5 shadow-sm backdrop-blur">
+            {/* Hide the “what you can do” card on mobile to keep it clean */}
+            <div className="mt-6 hidden rounded-3xl border border-slate-200 bg-white/75 p-5 shadow-sm backdrop-blur md:block">
               <div className="text-sm font-semibold text-slate-900">
                 What you can do after login
               </div>
@@ -154,9 +155,9 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* RIGHT */}
-          <div className="order-1 md:order-2">
-            <div className="rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
+          {/* RIGHT (Form) */}
+          <div className="order-2">
+            <div className="rounded-3xl border border-slate-200 bg-white/85 p-6 shadow-sm backdrop-blur">
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -230,7 +231,8 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <p className="mt-3 text-center text-xs text-slate-500">
+            {/* Hide API on mobile (looks messy); show on md+ */}
+            <p className="mt-3 hidden text-center text-xs text-slate-500 md:block">
               API: <span className="font-mono">{API_BASE}</span>
             </p>
           </div>
