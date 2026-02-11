@@ -4,6 +4,8 @@ import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 const CODE_KEY = "affiliate_ref_code";
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL || "https://doc-explainer-api.onrender.com";
 
 export default function ReferralRedirectPage() {
   const router = useRouter();
@@ -13,17 +15,14 @@ export default function ReferralRedirectPage() {
   useEffect(() => {
     async function run() {
       if (code) {
-        // store referral code for signup attribution
         try {
           localStorage.setItem(CODE_KEY, code);
         } catch {}
 
-        // ✅ track click (public endpoint)
+        // ✅ track click (public)
         try {
           await fetch(
-            `https://doc-explainer-api.onrender.com/affiliate/track-click/${encodeURIComponent(
-              code
-            )}`,
+            `${API_BASE}/affiliate/track-click/${encodeURIComponent(code)}`,
             { method: "POST" }
           );
         } catch {}
