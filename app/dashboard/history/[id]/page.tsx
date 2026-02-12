@@ -1,7 +1,7 @@
 // app/dashboard/history/[id]/page.tsx
 "use client";
 
-import Nav from "../../../../components/Nav";
+import Nav from "@/components/Nav";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -12,6 +12,7 @@ type DocumentItem = {
   stored_filename: string;
   created_at: string;
   status: "uploaded" | "in_review" | "completed" | string;
+  review_notes?: string | null;
 };
 
 const API_BASE =
@@ -112,7 +113,10 @@ function pushUserResponse(docId: number, text: string) {
       createdAt: new Date().toISOString(),
       isNew: true,
     };
-    localStorage.setItem(lsKeyForResponses(docId), JSON.stringify([next, ...events]));
+    localStorage.setItem(
+      lsKeyForResponses(docId),
+      JSON.stringify([next, ...events])
+    );
   } catch {
     // ignore
   }
@@ -135,6 +139,38 @@ function statusPill(status: string) {
   return "bg-slate-100 text-slate-800";
 }
 
+// --- helpers for showing the AI text nicely ---
+function extractSection(all: string, title: string) {
+  const text = (all || "").trim();
+  if (!text) return "";
+
+  // Handles headings like: "### 1. Plain-English Summary" or "## Summary"
+  const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(
+    `(^|\\n)#{2,3}\\s*(?:\\d+\\.?\\s*)?${esc(title)}\\s*\\n`,
+    "i"
+  );
+
+  const m = text.match(pattern);
+  if (!m || m.index == null) return "";
+
+  const start = m.index + (m[0]?.length || 0);
+  const rest = text.slice(start);
+
+  // Next heading ends the section
+  const nextHeading = rest.search(/\n#{2,3}\s+/);
+  const chunk = nextHeading === -1 ? rest : rest.slice(0, nextHeading);
+
+  return chunk.trim();
+}
+
+function compact(all: string, maxChars = 900) {
+  const t = (all || "").trim();
+  if (!t) return "";
+  if (t.length <= maxChars) return t;
+  return t.slice(0, maxChars).trim() + "…";
+}
+
 export default function DocumentHubPage() {
   const router = useRouter();
   const params = useParams();
@@ -143,9 +179,9 @@ export default function DocumentHubPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
-  const [tab, setTab] = useState<"overview" | "flags" | "responses" | "history">(
-    "overview"
-  );
+  const [tab, setTab] = useState<
+    "overview" | "flags" | "responses" | "history"
+  >("overview");
 
   const [responses, setResponses] = useState<ResponseEvent[]>([]);
   const [note, setNote] = useState("");
@@ -170,9 +206,7 @@ export default function DocumentHubPage() {
       return;
     }
 
-    // ✅ capture a non-null id for inner async usage (fixes the red lines)
     const id = docId;
-
     let cancelled = false;
 
     async function load() {
@@ -202,7 +236,6 @@ export default function DocumentHubPage() {
           if (!cancelled) setDoc(found);
         }
 
-        // Responses UI (frontend-only)
         seedResponsesIfEmpty(id);
         const ev = loadResponses(id);
         if (!cancelled) setResponses(ev);
@@ -236,6 +269,28 @@ export default function DocumentHubPage() {
   const pill = statusPill(status);
   const label = statusLabel(status);
 
+  // --- derive the three cards from the single AI output ---
+  const full = (doc?.review_notes || "").trim();
+
+  const summaryText =
+    extractSection(full, "Plain-English Summary") ||
+    extractSection(full, "Summary") ||
+    "";
+
+  const datesFeesText =
+    extractSection(full, "Key Fees & Costs") ||
+    extractSection(full, "Important Dates & Deadlines") ||
+    extractSection(full, "Key dates & fees") ||
+    "";
+
+  const questionsText =
+    extractSection(full, "Questions to Ask") ||
+    extractSection(full, "Questions to ask") ||
+    "";
+
+  // If the model returns one big response, we still show it (compact) in Summary.
+  const fallbackCompact = compact(full, 1200);
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-white via-emerald-50/40 to-white">
       <Nav />
@@ -247,7 +302,8 @@ export default function DocumentHubPage() {
               Document hub
             </h1>
             <p className="mt-1 text-sm text-slate-600">
-              Summary, red flags, responses, and change history — all in one place.
+              Summary, red flags, responses, and change history — all in one
+              place.
             </p>
           </div>
 
@@ -313,13 +369,22 @@ export default function DocumentHubPage() {
               </div>
 
               <div className="mt-6 flex flex-wrap gap-2">
-                <TabButton active={tab === "overview"} onClick={() => setTab("overview")}>
+                <TabButton
+                  active={tab === "overview"}
+                  onClick={() => setTab("overview")}
+                >
                   Overview
                 </TabButton>
-                <TabButton active={tab === "flags"} onClick={() => setTab("flags")}>
+                <TabButton
+                  active={tab === "flags"}
+                  onClick={() => setTab("flags")}
+                >
                   Red flags
                 </TabButton>
-                <TabButton active={tab === "responses"} onClick={() => setTab("responses")}>
+                <TabButton
+                  active={tab === "responses"}
+                  onClick={() => setTab("responses")}
+                >
                   Responses
                   {newCount > 0 && (
                     <span className="ml-2 inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
@@ -327,7 +392,10 @@ export default function DocumentHubPage() {
                     </span>
                   )}
                 </TabButton>
-                <TabButton active={tab === "history"} onClick={() => setTab("history")}>
+                <TabButton
+                  active={tab === "history"}
+                  onClick={() => setTab("history")}
+                >
                   History
                 </TabButton>
               </div>
@@ -337,16 +405,41 @@ export default function DocumentHubPage() {
               <div className="lg:col-span-2 space-y-6">
                 {tab === "overview" && (
                   <>
-                    <PlaceholderCard title="Summary" sub="Plain-English explanation of what matters most." status={status} />
-                    <PlaceholderCard title="Key dates & fees" sub="Deposits, late fees, notice windows, renewal terms." status={status} />
-                    <PlaceholderCard title="Questions to ask" sub="Targeted questions to reduce risk before signing." status={status} />
+                    <OutputCard
+                      title="Summary"
+                      sub="Plain-English explanation of what matters most."
+                      status={status}
+                      text={summaryText || fallbackCompact}
+                    />
+                    <OutputCard
+                      title="Key dates & fees"
+                      sub="Deposits, late fees, notice windows, renewal terms."
+                      status={status}
+                      text={datesFeesText || ""}
+                    />
+                    <OutputCard
+                      title="Questions to ask"
+                      sub="Targeted questions to reduce risk before signing."
+                      status={status}
+                      text={questionsText || ""}
+                    />
                   </>
                 )}
 
                 {tab === "flags" && (
                   <>
-                    <PlaceholderCard title="High-risk clauses" sub="Clauses that often shift liability, deadlines, or cost." status={status} />
-                    <PlaceholderCard title="Ambiguities" sub="Language that’s unclear, missing, or contradictory." status={status} />
+                    <OutputCard
+                      title="High-risk clauses"
+                      sub="Clauses that often shift liability, deadlines, or cost."
+                      status={status}
+                      text={extractSection(full, "Red Flags") || extractSection(full, "High-Risk Clauses") || ""}
+                    />
+                    <OutputCard
+                      title="Ambiguities"
+                      sub="Language that’s unclear, missing, or contradictory."
+                      status={status}
+                      text={extractSection(full, "Ambiguities") || ""}
+                    />
                   </>
                 )}
 
@@ -354,7 +447,9 @@ export default function DocumentHubPage() {
                   <div className="rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <h3 className="text-lg font-semibold text-slate-900">Responses & updates</h3>
+                        <h3 className="text-lg font-semibold text-slate-900">
+                          Responses & updates
+                        </h3>
                         <p className="mt-1 text-sm text-slate-600">
                           Updates, detected changes, and your notes (frontend-only UI for now).
                         </p>
@@ -368,7 +463,9 @@ export default function DocumentHubPage() {
                     </div>
 
                     <div className="mt-5 flex flex-col gap-3">
-                      <label className="text-sm font-semibold text-slate-800">Add a note / question</label>
+                      <label className="text-sm font-semibold text-slate-800">
+                        Add a note / question
+                      </label>
                       <textarea
                         className="min-h-[90px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-4 focus:ring-emerald-100"
                         value={note}
@@ -411,7 +508,9 @@ export default function DocumentHubPage() {
 
                 {tab === "history" && (
                   <div className="rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
-                    <h3 className="text-lg font-semibold text-slate-900">Version history</h3>
+                    <h3 className="text-lg font-semibold text-slate-900">
+                      Version history
+                    </h3>
                     <p className="mt-1 text-sm text-slate-600">
                       Track revisions and detected changes here (backend wiring later).
                     </p>
@@ -424,7 +523,9 @@ export default function DocumentHubPage() {
 
               <div className="space-y-6">
                 <div className="rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
-                  <h3 className="text-base font-semibold text-slate-900">Next actions</h3>
+                  <h3 className="text-base font-semibold text-slate-900">
+                    Next actions
+                  </h3>
                   <p className="mt-1 text-sm text-slate-600">
                     Focused, professional steps for this document.
                   </p>
@@ -501,14 +602,16 @@ function TabButton({
   );
 }
 
-function PlaceholderCard({
+function OutputCard({
   title,
   sub,
   status,
+  text,
 }: {
   title: string;
   sub: string;
   status: string;
+  text: string;
 }) {
   const s = (status || "").toLowerCase();
   const isDone = s === "completed" || s.includes("complete");
@@ -521,6 +624,8 @@ function PlaceholderCard({
     : isReview
     ? "bg-amber-100 text-amber-800"
     : "bg-slate-100 text-slate-800";
+
+  const showText = isDone && (text || "").trim();
 
   return (
     <div className="rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
@@ -535,8 +640,8 @@ function PlaceholderCard({
       </div>
 
       <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-700">
-        {isDone ? (
-          <div>Placeholder: display real output here when backend is wired.</div>
+        {showText ? (
+          <div className="whitespace-pre-wrap leading-6">{text}</div>
         ) : (
           <div>
             Not ready yet — once processing completes, real content will appear automatically.
