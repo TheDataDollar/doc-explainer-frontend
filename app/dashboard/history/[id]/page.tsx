@@ -1,4 +1,3 @@
-// app/dashboard/history/[id]/page.tsx
 "use client";
 
 import Nav from "@/components/Nav";
@@ -113,10 +112,7 @@ function pushUserResponse(docId: number, text: string) {
       createdAt: new Date().toISOString(),
       isNew: true,
     };
-    localStorage.setItem(
-      lsKeyForResponses(docId),
-      JSON.stringify([next, ...events])
-    );
+    localStorage.setItem(lsKeyForResponses(docId), JSON.stringify([next, ...events]));
   } catch {
     // ignore
   }
@@ -139,36 +135,64 @@ function statusPill(status: string) {
   return "bg-slate-100 text-slate-800";
 }
 
-// --- helpers for showing the AI text nicely ---
-function extractSection(all: string, title: string) {
-  const text = (all || "").trim();
-  if (!text) return "";
-
-  // Handles headings like: "### 1. Plain-English Summary" or "## Summary"
-  const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const pattern = new RegExp(
-    `(^|\\n)#{2,3}\\s*(?:\\d+\\.?\\s*)?${esc(title)}\\s*\\n`,
-    "i"
-  );
-
-  const m = text.match(pattern);
-  if (!m || m.index == null) return "";
-
-  const start = m.index + (m[0]?.length || 0);
-  const rest = text.slice(start);
-
-  // Next heading ends the section
-  const nextHeading = rest.search(/\n#{2,3}\s+/);
-  const chunk = nextHeading === -1 ? rest : rest.slice(0, nextHeading);
-
-  return chunk.trim();
+/** ---- AI PARSING (simple + robust) ----
+ * Your AI returns markdown like:
+ * ### 1. Plain-English Summary
+ * ...
+ * ### 2. Key Fees & Costs
+ * ...
+ */
+function normalizeText(s: string) {
+  return (s || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .trim();
 }
 
-function compact(all: string, maxChars = 900) {
-  const t = (all || "").trim();
-  if (!t) return "";
-  if (t.length <= maxChars) return t;
-  return t.slice(0, maxChars).trim() + "…";
+function pickSection(all: string, keywords: string[]) {
+  const text = normalizeText(all);
+  if (!text) return "";
+
+  // Split on markdown headings
+  const chunks = text.split(/\n#{2,4}\s+/g); // handles ## ### ####
+  if (chunks.length <= 1) return text;
+
+  // Re-add the first chunk if it’s content before headings
+  const parts = chunks.map((c) => c.trim()).filter(Boolean);
+
+  // Each part starts with heading line + body
+  // e.g. "1. Plain-English Summary\nThis document..."
+  for (const part of parts) {
+    const firstLine = part.split("\n")[0]?.toLowerCase() || "";
+    if (keywords.some((k) => firstLine.includes(k))) {
+      return part.split("\n").slice(1).join("\n").trim();
+    }
+  }
+
+  return "";
+}
+
+function bulletsOnly(text: string, maxBullets = 6) {
+  const lines = normalizeText(text)
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  // keep bullet-like lines; if none, keep first few sentences-ish lines
+  const bullets = lines.filter((l) => /^[-•*]\s+/.test(l) || /^\d+\./.test(l));
+  const chosen = (bullets.length ? bullets : lines).slice(0, maxBullets);
+
+  return chosen.join("\n");
+}
+
+function isPdfTextEmptyMessage(s: string) {
+  const t = (s || "").toLowerCase();
+  return (
+    t.includes("no readable text") ||
+    t.includes("no text was found") ||
+    t.includes("empty") ||
+    t.includes("could not extract")
+  );
 }
 
 export default function DocumentHubPage() {
@@ -179,12 +203,18 @@ export default function DocumentHubPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
-  const [tab, setTab] = useState<
-    "overview" | "flags" | "responses" | "history"
-  >("overview");
+  const [tab, setTab] = useState<"overview" | "flags" | "responses" | "history">(
+    "overview"
+  );
 
   const [responses, setResponses] = useState<ResponseEvent[]>([]);
   const [note, setNote] = useState("");
+
+  // Parsed AI sections
+  const [summaryText, setSummaryText] = useState("");
+  const [feesDatesText, setFeesDatesText] = useState("");
+  const [questionsText, setQuestionsText] = useState("");
+  const [flagsText, setFlagsText] = useState("");
 
   const docId = useMemo(() => {
     const raw = (params as any)?.id as string | string[] | undefined;
@@ -218,27 +248,44 @@ export default function DocumentHubPage() {
           headers: { Authorization: `Bearer ${token}` },
         });
 
-        if (direct.ok) {
-          const data = await direct.json();
-          if (!cancelled) setDoc(data);
-        } else {
-          const list = await fetch(`${API_BASE}/documents`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-
-          if (!list.ok) throw new Error("Failed to load document list");
-          const docs: DocumentItem[] = await list.json();
-          const found = Array.isArray(docs)
-            ? docs.find((d) => d.document_id === id)
-            : null;
-
-          if (!found) throw new Error("Document not found");
-          if (!cancelled) setDoc(found);
+        if (!direct.ok) {
+          throw new Error("Document not found");
         }
 
+        const data: DocumentItem = await direct.json();
+        if (cancelled) return;
+
+        setDoc(data);
+
+        const raw = normalizeText(data.review_notes || "");
+
+        // If AI produced a single big response, split it into sections.
+        // If it didn't split cleanly, we still display something.
+        const s1 =
+          pickSection(raw, ["plain-english summary", "plain english summary", "summary"]) ||
+          raw;
+
+        const s2 =
+          pickSection(raw, ["key fees", "fees & costs", "fees and costs", "dates", "deadlines"]) ||
+          "";
+
+        const s3 =
+          pickSection(raw, ["questions to ask", "questions"]) ||
+          "";
+
+        const s4 =
+          pickSection(raw, ["red flags", "risks", "risk", "attention flags", "high-risk"]) ||
+          "";
+
+        // Keep output short + readable (your “brain can’t retain” note)
+        setSummaryText(bulletsOnly(s1, 7));
+        setFeesDatesText(bulletsOnly(s2 || "", 7));
+        setQuestionsText(bulletsOnly(s3 || "", 7));
+        setFlagsText(bulletsOnly(s4 || "", 7));
+
+        // Responses UI (frontend-only)
         seedResponsesIfEmpty(id);
-        const ev = loadResponses(id);
-        if (!cancelled) setResponses(ev);
+        setResponses(loadResponses(id));
       } catch (e: any) {
         if (!cancelled) setErr(e?.message || "Something went wrong");
       } finally {
@@ -269,27 +316,9 @@ export default function DocumentHubPage() {
   const pill = statusPill(status);
   const label = statusLabel(status);
 
-  // --- derive the three cards from the single AI output ---
-  const full = (doc?.review_notes || "").trim();
-
-  const summaryText =
-    extractSection(full, "Plain-English Summary") ||
-    extractSection(full, "Summary") ||
-    "";
-
-  const datesFeesText =
-    extractSection(full, "Key Fees & Costs") ||
-    extractSection(full, "Important Dates & Deadlines") ||
-    extractSection(full, "Key dates & fees") ||
-    "";
-
-  const questionsText =
-    extractSection(full, "Questions to Ask") ||
-    extractSection(full, "Questions to ask") ||
-    "";
-
-  // If the model returns one big response, we still show it (compact) in Summary.
-  const fallbackCompact = compact(full, 1200);
+  const reviewRaw = normalizeText(doc?.review_notes || "");
+  const done = (status || "").toLowerCase().includes("complete");
+  const noText = isPdfTextEmptyMessage(reviewRaw);
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-white via-emerald-50/40 to-white">
@@ -302,8 +331,7 @@ export default function DocumentHubPage() {
               Document hub
             </h1>
             <p className="mt-1 text-sm text-slate-600">
-              Summary, red flags, responses, and change history — all in one
-              place.
+              Summary, red flags, responses, and change history — all in one place.
             </p>
           </div>
 
@@ -369,22 +397,13 @@ export default function DocumentHubPage() {
               </div>
 
               <div className="mt-6 flex flex-wrap gap-2">
-                <TabButton
-                  active={tab === "overview"}
-                  onClick={() => setTab("overview")}
-                >
+                <TabButton active={tab === "overview"} onClick={() => setTab("overview")}>
                   Overview
                 </TabButton>
-                <TabButton
-                  active={tab === "flags"}
-                  onClick={() => setTab("flags")}
-                >
+                <TabButton active={tab === "flags"} onClick={() => setTab("flags")}>
                   Red flags
                 </TabButton>
-                <TabButton
-                  active={tab === "responses"}
-                  onClick={() => setTab("responses")}
-                >
+                <TabButton active={tab === "responses"} onClick={() => setTab("responses")}>
                   Responses
                   {newCount > 0 && (
                     <span className="ml-2 inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
@@ -392,10 +411,7 @@ export default function DocumentHubPage() {
                     </span>
                   )}
                 </TabButton>
-                <TabButton
-                  active={tab === "history"}
-                  onClick={() => setTab("history")}
-                >
+                <TabButton active={tab === "history"} onClick={() => setTab("history")}>
                   History
                 </TabButton>
               </div>
@@ -405,41 +421,57 @@ export default function DocumentHubPage() {
               <div className="lg:col-span-2 space-y-6">
                 {tab === "overview" && (
                   <>
-                    <OutputCard
+                    <AnalysisCard
                       title="Summary"
                       sub="Plain-English explanation of what matters most."
                       status={status}
-                      text={summaryText || fallbackCompact}
+                      content={done ? summaryText : ""}
+                      fallback={
+                        noText
+                          ? "No readable text was found in this document."
+                          : "Not ready yet — once processing completes, real content will appear automatically."
+                      }
                     />
-                    <OutputCard
+                    <AnalysisCard
                       title="Key dates & fees"
                       sub="Deposits, late fees, notice windows, renewal terms."
                       status={status}
-                      text={datesFeesText || ""}
+                      content={done ? feesDatesText : ""}
+                      fallback={
+                        done
+                          ? "No key dates/fees were detected in the extracted text."
+                          : "Not ready yet — once processing completes, real content will appear automatically."
+                      }
                     />
-                    <OutputCard
+                    <AnalysisCard
                       title="Questions to ask"
                       sub="Targeted questions to reduce risk before signing."
                       status={status}
-                      text={questionsText || ""}
+                      content={done ? questionsText : ""}
+                      fallback={
+                        done
+                          ? "No questions were generated for this document."
+                          : "Not ready yet — once processing completes, real content will appear automatically."
+                      }
                     />
                   </>
                 )}
 
                 {tab === "flags" && (
                   <>
-                    <OutputCard
-                      title="High-risk clauses"
-                      sub="Clauses that often shift liability, deadlines, or cost."
+                    <AnalysisCard
+                      title="Red flags"
+                      sub="Clauses and details that commonly cause problems."
                       status={status}
-                      text={extractSection(full, "Red Flags") || extractSection(full, "High-Risk Clauses") || ""}
+                      content={done ? flagsText : ""}
+                      fallback={
+                        done
+                          ? "No obvious red flags were detected in the extracted text."
+                          : "Not ready yet — once processing completes, real content will appear automatically."
+                      }
                     />
-                    <OutputCard
-                      title="Ambiguities"
-                      sub="Language that’s unclear, missing, or contradictory."
-                      status={status}
-                      text={extractSection(full, "Ambiguities") || ""}
-                    />
+                    {/* Optional: show the full raw output (collapsed) */}
+                    <RawOutputCard raw={reviewRaw} />
                   </>
                 )}
 
@@ -447,9 +479,7 @@ export default function DocumentHubPage() {
                   <div className="rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <h3 className="text-lg font-semibold text-slate-900">
-                          Responses & updates
-                        </h3>
+                        <h3 className="text-lg font-semibold text-slate-900">Responses & updates</h3>
                         <p className="mt-1 text-sm text-slate-600">
                           Updates, detected changes, and your notes (frontend-only UI for now).
                         </p>
@@ -463,9 +493,7 @@ export default function DocumentHubPage() {
                     </div>
 
                     <div className="mt-5 flex flex-col gap-3">
-                      <label className="text-sm font-semibold text-slate-800">
-                        Add a note / question
-                      </label>
+                      <label className="text-sm font-semibold text-slate-800">Add a note / question</label>
                       <textarea
                         className="min-h-[90px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-4 focus:ring-emerald-100"
                         value={note}
@@ -508,9 +536,7 @@ export default function DocumentHubPage() {
 
                 {tab === "history" && (
                   <div className="rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
-                    <h3 className="text-lg font-semibold text-slate-900">
-                      Version history
-                    </h3>
+                    <h3 className="text-lg font-semibold text-slate-900">Version history</h3>
                     <p className="mt-1 text-sm text-slate-600">
                       Track revisions and detected changes here (backend wiring later).
                     </p>
@@ -523,9 +549,7 @@ export default function DocumentHubPage() {
 
               <div className="space-y-6">
                 <div className="rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
-                  <h3 className="text-base font-semibold text-slate-900">
-                    Next actions
-                  </h3>
+                  <h3 className="text-base font-semibold text-slate-900">Next actions</h3>
                   <p className="mt-1 text-sm text-slate-600">
                     Focused, professional steps for this document.
                   </p>
@@ -547,14 +571,9 @@ export default function DocumentHubPage() {
 
                     <button
                       className="w-full rounded-2xl border border-emerald-200 bg-emerald-50 py-3 text-sm font-semibold text-emerald-900 hover:bg-emerald-100"
-                      onClick={() => setTab("responses")}
+                      onClick={() => setTab("flags")}
                     >
-                      Open responses
-                      {newCount > 0 ? (
-                        <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
-                          {newCount}
-                        </span>
-                      ) : null}
+                      Open red flags
                     </button>
                   </div>
 
@@ -602,16 +621,18 @@ function TabButton({
   );
 }
 
-function OutputCard({
+function AnalysisCard({
   title,
   sub,
   status,
-  text,
+  content,
+  fallback,
 }: {
   title: string;
   sub: string;
   status: string;
-  text: string;
+  content: string;
+  fallback: string;
 }) {
   const s = (status || "").toLowerCase();
   const isDone = s === "completed" || s.includes("complete");
@@ -625,7 +646,13 @@ function OutputCard({
     ? "bg-amber-100 text-amber-800"
     : "bg-slate-100 text-slate-800";
 
-  const showText = isDone && (text || "").trim();
+  const [expanded, setExpanded] = useState(false);
+  const safe = (content || "").trim();
+
+  const showText = isDone && safe ? safe : fallback;
+  const lines = showText.split("\n");
+  const clipped = expanded ? showText : lines.slice(0, 10).join("\n");
+  const canExpand = lines.length > 10;
 
   return (
     <div className="rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
@@ -639,15 +666,49 @@ function OutputCard({
         </span>
       </div>
 
-      <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-700">
-        {showText ? (
-          <div className="whitespace-pre-wrap leading-6">{text}</div>
-        ) : (
-          <div>
-            Not ready yet — once processing completes, real content will appear automatically.
-          </div>
-        )}
+      <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-800">
+        <div className="whitespace-pre-wrap leading-relaxed">{clipped}</div>
+
+        {canExpand ? (
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            className="mt-3 inline-flex text-sm font-semibold text-emerald-700 hover:underline"
+          >
+            {expanded ? "Show less" : "Show more"}
+          </button>
+        ) : null}
       </div>
+    </div>
+  );
+}
+
+function RawOutputCard({ raw }: { raw: string }) {
+  const [open, setOpen] = useState(false);
+  const text = (raw || "").trim();
+  if (!text) return null;
+
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white/70 p-6 shadow-sm backdrop-blur">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h3 className="text-base font-semibold text-slate-900">Full AI output</h3>
+          <p className="mt-1 text-sm text-slate-600">
+            For power users. (Most people won’t need this.)
+          </p>
+        </div>
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+        >
+          {open ? "Hide" : "View"}
+        </button>
+      </div>
+
+      {open ? (
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-800 whitespace-pre-wrap">
+          {text}
+        </div>
+      ) : null}
     </div>
   );
 }
